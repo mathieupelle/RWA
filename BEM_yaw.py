@@ -64,7 +64,7 @@ class conditions:
 
 class functions:
 
-    def loads(r,aa,at):
+    def loads(r,psi,aa,at):
         """
         Computes value of twist for radial position
         param r: Radial position [m]
@@ -75,7 +75,7 @@ class functions:
         return aa: Corrected axial induction factor [-]
         """
         V_a = cond.U0*(m.cos(cond.gamma)-aa)
-        V_t = cond.omega*r*(1+at)+cond.U0*m.sin(cond.gamma)
+        V_t = cond.omega*r*(1+at)+cond.U0*m.sin(cond.gamma)*m.sin(psi)
         V = m.sqrt(V_a**2+V_t**2)
         phi = m.atan(V_a/V_t)
         alpha = phi - (blade.theta0 + blade.twist(r))
@@ -84,7 +84,7 @@ class functions:
         D = 0.5*cond.rho*V**2*blade.chord(r)*cd
         F_az = L*m.sin(phi) - D*m.cos(phi)
         F_ax = L*m.cos(phi) + D*m.sin(phi)
-        CT = F_ax*blade.B/(0.5*cond.rho*cond.U0**2*2*m.pi*r)
+        CT = F_ax*blade.B/(0.5*cond.rho*cond.U0**2*r*np.pi*2)/2/np.pi
         #CT updtade
         CT1=1.816
         CT2=2*m.sqrt(CT1)-CT1
@@ -112,7 +112,7 @@ class functions:
         return f_total
 
 
-    def iteration(r):
+    def iteration(r,psi):
         """
         Iterative procedure to compute final induction factors
         param r: Radial position [m]
@@ -121,18 +121,18 @@ class functions:
         """
         aa = 0.2
         at = 0.2
-        error = 1e-6
+        error = 1e-4
         iterations = 0
         iterations_max = 1000
         residual = 1e4
         UR_factor = 0.25
         while iterations<iterations_max and residual>error:
-            F_az, F_ax, CT, aa_new = functions.loads(r,aa,at)
+            F_az, F_ax, CT, aa_new = functions.loads(r,psi,aa,at)
             f_total = functions.Prandtl(r,aa_new)
             aa_new = aa_new/f_total
             aa = (1-UR_factor)*aa + UR_factor*aa_new
 
-            at = F_az*blade.B/(2*cond.rho*2*m.pi*r*cond.U0**2*(1-aa)*cond.TSR*r/blade.R)
+            at = F_az*blade.B/(2*cond.rho*r*2*np.pi*cond.U0**2*(1-aa)*cond.TSR*r/blade.R)
             at = at/f_total
 
             residual = abs(aa - aa_new)
@@ -144,44 +144,56 @@ class functions:
 blade = blade(50,3,0.2,-2, 'polar DU95W180 (3).xlsx')
 cond = conditions(1,8,1.225,0)
 
-r_lst = np.linspace(blade.r0+blade.R*0.005,blade.R*0.995,80)
+r_lst = np.linspace(blade.r0+blade.R*0.005,blade.R*0.995,10)
 dr = r_lst[1] - r_lst[0]
 
+psi_lst = np.linspace(0,2*m.pi,10)
+dpsi = psi_lst[1] - psi_lst[0]
 
-induction = np.zeros((len(r_lst),2))
-output=np.zeros((len(r_lst),4))
+
+aa_lst = np.zeros((len(r_lst),len(psi_lst)))
+at_lst = np.zeros((len(r_lst),len(psi_lst)))
+Faz_lst = np.zeros((len(r_lst),len(psi_lst)))
+Fax_lst = np.zeros((len(r_lst),len(psi_lst)))
 for i in range(len(r_lst)):
-    induction[i,:] = functions.iteration(r_lst[i])
-    output[i,:] = functions.loads(r_lst[i],induction[i,0],induction[i,1])
-    if i in [len(r_lst)/4,len(r_lst)/2,len(r_lst)*3/4,len(r_lst)-1]:
-        print('Completed ' +str(25*round(i/len(r_lst)*100/25))+' %')
-cT=dr*np.sum(output[:,1])*blade.B/(0.5*cond.rho*cond.U0**2*m.pi*blade.R**2)
-cP=dr*np.dot(output[:,0],r_lst)*blade.B*cond.omega/(0.5*cond.rho*cond.U0**3*m.pi*blade.R**2)
+    print(i)
+    for j in range(len(psi_lst)):
+        aa_lst[i,j], at_lst[i,j] = functions.iteration(r_lst[i],psi_lst[j])
+        Faz_lst[i,j], Fax_lst[i,j], CT, aa = functions.loads(r_lst[i],psi_lst[j],aa_lst[i,j], at_lst[i,j])
+
+
+    # if i in [len(r_lst)/4,len(r_lst)/2,len(r_lst)*3/4,len(r_lst)-1]:
+    #     print('Completed ' +str(25*round(i/len(r_lst)*100/25))+' %')
+cT=dpsi*dr*np.sum(Fax_lst)*blade.B/(0.5*cond.rho*cond.U0**2*m.pi*blade.R**2)
+cP=dpsi*dr*np.dot(np.sum(Faz_lst,axis=1),r_lst)*blade.B*cond.omega/(0.5*cond.rho*cond.U0**3*m.pi*blade.R**2)
 print('Thrust coefficient: ' +str(round(cT,3)))
 print('Power coefficient: ' +str(round(cP,3)))
 
+# CT is  0.6553548532990465
+# CP is  0.4481601425236158
+
 #%% Plotting
 
-dt = pd.read_csv('Validation/results.txt')
-results=dt.to_numpy()
+# dt = pd.read_csv('Validation/results.txt')
+# results=dt.to_numpy()
 
-fig1 = plt.figure(figsize=(12, 6))
-plt.title('Axial and tangential induction')
-plt.plot(r_lst/blade.R, induction[:,0], 'r-', label=r'$a$')
-plt.plot(r_lst/blade.R, induction[:,1], 'g-', label=r'$a^,$')
-plt.plot(results[:,2], results[:,0], 'r--', label=r'$a_{val}$')
-plt.plot(results[:,2], results[:,1], 'g--', label=r'$a^,_{val}$')
-plt.grid()
-plt.xlabel('r/R')
-plt.legend()
+# fig1 = plt.figure(figsize=(12, 6))
+# plt.title('Axial and tangential induction')
+# plt.plot(r_lst/blade.R, induction[:,0], 'r-', label=r'$a$')
+# plt.plot(r_lst/blade.R, induction[:,1], 'g-', label=r'$a^,$')
+# plt.plot(results[:,2], results[:,0], 'r--', label=r'$a_{val}$')
+# plt.plot(results[:,2], results[:,1], 'g--', label=r'$a^,_{val}$')
+# plt.grid()
+# plt.xlabel('r/R')
+# plt.legend()
 
-fig1 = plt.figure(figsize=(12, 6))
-plt.title(r'Normal and tagential force, non-dimensioned by $\frac{1}{2} \rho U_\infty^2 R$')
-plt.plot(r_lst/blade.R, output[:,1]/(0.5*cond.U0**2*blade.R*cond.rho), 'r-', label=r'Fnorm')
-plt.plot(r_lst/blade.R, output[:,0]/(0.5*cond.U0**2*blade.R*cond.rho), 'g-', label=r'Ftan')
-plt.plot(results[:,2], results[:,3]/(0.5*cond.U0**2*blade.R), 'r--', label=r'Fnorm (val)')
-plt.plot(results[:,2], results[:,4]/(0.5*cond.U0**2*blade.R), 'g--', label=r'Ftan (val)')
-plt.grid()
-plt.xlabel('r/R')
-plt.legend()
-plt.show()
+# fig1 = plt.figure(figsize=(12, 6))
+# plt.title(r'Normal and tagential force, non-dimensioned by $\frac{1}{2} \rho U_\infty^2 R$')
+# plt.plot(r_lst/blade.R, output[:,1]/(0.5*cond.U0**2*blade.R*cond.rho), 'r-', label=r'Fnorm')
+# plt.plot(r_lst/blade.R, output[:,0]/(0.5*cond.U0**2*blade.R*cond.rho), 'g-', label=r'Ftan')
+# plt.plot(results[:,2], results[:,3]/(0.5*cond.U0**2*blade.R), 'r--', label=r'Fnorm (val)')
+# plt.plot(results[:,2], results[:,4]/(0.5*cond.U0**2*blade.R), 'g--', label=r'Ftan (val)')
+# plt.grid()
+# plt.xlabel('r/R')
+# plt.legend()
+# plt.show()

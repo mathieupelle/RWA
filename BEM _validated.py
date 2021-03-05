@@ -149,10 +149,12 @@ dr = r_lst[1] - r_lst[0]
 
 
 induction = np.zeros((len(r_lst),2))
-output=np.zeros((len(r_lst),4))
+output = np.zeros((len(r_lst),4))
+torque = np.zeros((len(r_lst),1))
 for i in range(len(r_lst)):
     induction[i,:] = functions.iteration(r_lst[i])
     output[i,:] = functions.loads(r_lst[i],induction[i,0],induction[i,1])
+    torque[i] = output[i,0]*r_lst[i]*dr*blade.B
     if i in [len(r_lst)/4,len(r_lst)/2,len(r_lst)*3/4,len(r_lst)-1]:
         print('Completed ' +str(25*round(i/len(r_lst)*100/25))+' %')
 cT=dr*np.sum(output[:,1])*blade.B/(0.5*cond.rho*cond.U0**2*m.pi*blade.R**2)
@@ -166,6 +168,8 @@ print('Power coefficient: ' +str(round(cP,3)))
 dt = pd.read_csv('Validation/results.txt')
 results=dt.to_numpy()
 
+
+
 fig1 = plt.figure(figsize=(12, 6))
 plt.title('Axial and tangential induction')
 plt.plot(r_lst/blade.R, induction[:,0], 'r-', label=r'$a$')
@@ -176,12 +180,20 @@ plt.grid()
 plt.xlabel('r/R')
 plt.legend()
 
-fig1 = plt.figure(figsize=(12, 6))
+fig2 = plt.figure(figsize=(12, 6))
 plt.title(r'Normal and tagential force, non-dimensioned by $\frac{1}{2} \rho U_\infty^2 R$')
 plt.plot(r_lst/blade.R, output[:,1]/(0.5*cond.U0**2*blade.R*cond.rho), 'r-', label=r'Fnorm')
 plt.plot(r_lst/blade.R, output[:,0]/(0.5*cond.U0**2*blade.R*cond.rho), 'g-', label=r'Ftan')
 plt.plot(results[:,2], results[:,3]/(0.5*cond.U0**2*blade.R), 'r--', label=r'Fnorm (val)')
 plt.plot(results[:,2], results[:,4]/(0.5*cond.U0**2*blade.R), 'g--', label=r'Ftan (val)')
+plt.grid()
+plt.xlabel('r/R')
+plt.legend()
+plt.show()
+
+fig3 = plt.figure(figsize=(12, 6))
+plt.title(r'Torque non-dimensioned by $\frac{1}{2} \rho U_\infty^2 R^2$')
+plt.plot(r_lst/blade.R, torque/(0.5*cond.rho*cond.U0**2*blade.R**2), 'r-', label=r'Cq')
 plt.grid()
 plt.xlabel('r/R')
 plt.legend()
