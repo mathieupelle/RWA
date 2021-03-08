@@ -13,7 +13,7 @@ class Rotor:
     self.radius = 50 #[m]
     self.n_blades = 3
     self.theta = -2 #Pitch angle [deg]
-    self.N_radial = 50 #Number of sections
+    self.N_radial = 80 #Number of sections
     self.mu = np.linspace(0.2,1,self.N_radial)
     self.beta = 14*(1-self.mu) #Twist angle in degrees
     self.chord = 3*(1-self.mu)+1 #Chord length in meters
@@ -42,8 +42,8 @@ class BEMT:
     def __init__(self,Rotor):
         self.Rotor = Rotor
     
-    def RelativeVelocities(self,a,ap,azimuth=0):
-        u_tan = self.Rotor.omega*self.Rotor.radius*(1+ap) + self.Rotor.wind_speed*np.sin(self.Rotor.yaw)*np.sin(azimuth)
+    def RelativeVelocities(self,a,ap,mu,azimuth=0):
+        u_tan = self.Rotor.omega*self.Rotor.radius*mu*(1+ap) + self.Rotor.wind_speed*np.sin(self.Rotor.yaw)*np.sin(azimuth)
         u_nor = self.Rotor.wind_speed*(np.cos(self.Rotor.yaw)-a)
         
         # Testing Glauert correction
@@ -111,11 +111,8 @@ class BEMT:
         else:
             N_azimuth = self.Rotor.N_azimuth
             
-        self.Results = Results(self.Rotor.N_radial,self.Rotor.N_azimuth)
+        self.Results = Results(self.Rotor.N_radial,N_azimuth)
 
-                
-        #self.Distributed = self.CreateDistributedDF(N_azimuth) #Create a DF for the distributed results
-                
                 
         for i in range(self.Rotor.N_radial-1): #Loop of each blade section
             #Calculate blade parameters in this section
@@ -127,10 +124,10 @@ class BEMT:
             for j in range(N_azimuth-1):
                     azimuth = (self.Rotor.azimuth[j]+self.Rotor.azimuth[j+1])/2
                     
-                    a,ap = (1/3,0) #Initialize induction factors
+                    a,ap = (0.2,0.2) #Initialize induction factors
                     for ite in range(N_iter_max):
                         #Velocities and angles
-                        [u_tan,u_nor,u_rel,phi] = self.RelativeVelocities(a,ap,azimuth)
+                        [u_tan,u_nor,u_rel,phi] = self.RelativeVelocities(a,ap,mu,azimuth)
                         alpha = phi - (self.Rotor.beta[i] + self.Rotor.theta)*np.pi/180
                         
                         #Airfoil forces
@@ -164,21 +161,46 @@ class BEMT:
                         [a,ap,phi*180/np.pi,alpha*180/np.pi,cl,cd,f_nor,f_tan,f,ite]
                     
                         
-                        
-
-
-                        
-                        
-
-            
-            
-Test = Rotor()
-
-Test.SetOperationalData(10,7.5,15)
+def Plotting(Rotor,Results,Validation):
     
-Test_Bemt = BEMT(Test)
+    mu = np.zeros((Rotor.N_radial-1))
+    for i in range(Rotor.N_radial-1): #Loop of each blade section
+       mu[i] = (Rotor.mu[i]+Rotor.mu[i+1])/2
 
-Test_Bemt.Solver()
+    
+    fig = plt.figure()
+    plt.plot(mu,Results.a)
+    plt.plot(Validation['r_R'],Validation['a'])
+    plt.legend(['a','a (validation)'])
+    
+    fig = plt.figure()
+    plt.plot(mu,Results.ap)
+    plt.plot(Validation['r_R'],Validation['aline'])
+    plt.legend(['ap','ap (validation)'])
+
+    fig = plt.figure()
+    plt.plot(mu,Results.f_nor)
+    plt.plot(Validation['r_R'],Validation['fnorm']*1.225)
+    plt.legend(['fnorm','fnorm (validation)'])
+                        
+    fig = plt.figure()
+    plt.plot(mu,Results.f_tan)
+    plt.plot(Validation['r_R'],Validation['ftan']*1.225)
+    plt.legend(['ftan','ftan (validation)'])                        
+
+            
+            
+Blade = Rotor()
+
+Blade.SetOperationalData(1,8,0)
+    
+Blade_BEMT = BEMT(Blade)
+
+Blade_BEMT.Solver()
+
+Validation = pd.read_csv('Validation/results.txt')
+
+Plotting(Blade,Blade_BEMT.Results,Validation)
 
     
     
