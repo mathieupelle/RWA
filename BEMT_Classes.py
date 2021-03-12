@@ -1,9 +1,11 @@
 ## BEMT code using classes
 
 import numpy as np
-import seaborn as sns
+#import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
+from scipy.optimize import least_squares
+import math as m
 
 
 class Rotor:
@@ -13,7 +15,7 @@ class Rotor:
     self.radius = 50 #[m]
     self.n_blades = 3
     self.theta = -2 #Pitch angle [deg]
-    self.N_radial = 80 #Number of sections
+    self.N_radial = 60 #Number of sections
     self.mu = np.linspace(0.2,1,self.N_radial)
     self.beta = 14*(1-self.mu) #Twist angle in degrees
     self.chord = 3*(1-self.mu)+1 #Chord length in meters
@@ -34,9 +36,22 @@ class Rotor:
     
 class Results: #Create the variables to store the results from BEMT
     def __init__(self,N_radial,N_azimuth):
-        self.a,self.ap,self.phi,self.alpha,self.cl,self.cd,self.f_nor,self.f_tan,self.f,self.ite =  np.zeros((10,N_radial-1,N_azimuth-1))
-        self.CT, self.CP, self.CQ, self.P, self.T, self.Q = np.zeros((6,1))
+        self.a,self.ap,self.phi,self.alpha,self.cl,self.cd,self.f_nor,self.f_tan,self.f,self.ite,self.mu,self.chord,self.beta =  np.zeros((13,N_radial-1,N_azimuth-1))
+       # self.CT, self.CP, self.CQ, self.P, self.T, self.Q = np.zeros((6,1))
+        
+    def Integrate(self,Rotor):
+        #Calculate global CT and CP
+        d_r = (Rotor.mu[2]-Rotor.mu[1])*Rotor.radius
+        d_azi = 2*np.pi/np.size(self.a,1)
+        self.CT = np.sum(self.f_nor*Rotor.n_blades*d_azi/2/np.pi*d_r)/(0.5*Rotor.rho*Rotor.wind_speed**2*np.pi*Rotor.radius**2)
+        
+        dTorque = self.f_tan*d_r*self.mu*Rotor.radius*d_azi/2/np.pi
+        self.CP = np.sum(dTorque*Rotor.n_blades*Rotor.omega)/(0.5*Rotor.rho*Rotor.wind_speed**3*np.pi*Rotor.radius**2)
+
             
+        
+ #       CT = np.sum(dr*results[:,3]*NBlades/(0.5*Uinf**2*np.pi*Radius**2))
+#CP = np.sum(dr*results[:,4]*results[:,2]*NBlades*Radius*Omega/(0.5*Uinf**3*np.pi*Radius**2))
     
 class BEMT:
     def __init__(self,Rotor):
@@ -50,7 +65,7 @@ class BEMT:
         psi = (0.6*a+1)*self.Rotor.yaw
         K = 2*np.tan(psi/2)
         
-        #u_nor = self.wind_speed*(np.cos(self.yaw)-a*K*mu*np.sin(self.yaw))
+      # u_nor = self.Rotor.wind_speed*(np.cos(self.Rotor.yaw)-a*K*mu*np.sin(self.Rotor.yaw))
 
         u_rel = np.sqrt(u_tan**2 + u_nor**2)
         phi = np.arctan2(u_nor,u_tan)
@@ -119,6 +134,8 @@ class BEMT:
             mu = (self.Rotor.mu[i]+self.Rotor.mu[i+1])/2
             chord = np.interp(mu,self.Rotor.mu,self.Rotor.chord)
             beta = np.interp(mu,self.Rotor.mu,self.Rotor.beta)
+            
+            [self.Results.mu[i],self.Results.chord[i],self.Results.beta[i]] = [mu,chord,beta]
     
                 
             for j in range(N_azimuth-1):
@@ -159,6 +176,7 @@ class BEMT:
                     [self.Results.a[i,j],self.Results.ap[i,j],self.Results.phi[i,j],self.Results.alpha[i,j],self.Results.cl[i,j],
                      self.Results.cd[i,j],self.Results.f_nor[i,j],self.Results.f_tan[i,j],self.Results.f[i,j],self.Results.ite[i,j]] = \
                         [a,ap,phi*180/np.pi,alpha*180/np.pi,cl,cd,f_nor,f_tan,f,ite]
+              
                     
                         
 def Plotting(Rotor,Results,Validation):
@@ -188,19 +206,97 @@ def Plotting(Rotor,Results,Validation):
     plt.plot(Validation['r_R'],Validation['ftan']*1.225)
     plt.legend(['ftan','ftan (validation)'])                        
 
+
+class Optimizer:
+    def __init__(self, Rotor_original, a):
+        self.a = a
+        self.R = Rotor_original.radius
+        self.TSR = Rotor_original.TSR
+        self.B = Rotor_original.n_blades
+        self.mu = Rotor_original.mu
+        
+        #Calculate optimal Cl and E
+        Cl = Rotor_original.polars['Cl']
+        Cd = Rotor_original.polars['Cd']
+        self.E = max(Cl/Cd)
+        self.cl = Cl[np.argmax(Cl/Cd)]
+        
+        
+        
+    def residuals(self,x):
+        
+        c,ap = x #Unpack the input
+        
+        #Flow angle
+        phi = m.atan((1-self.a)*self.R/((1+ap)*self.r*self.TSR))
+        
+        #Tip loss
+        f = self.B * (self.R-self.r)/(2*self.r*np.sin(phi))
+        F = 2*m.acos(np.exp(-f))/np.pi
+        
+        #Force coefficients
+        Cy = self.cl * np.cos(phi) + self.cl/self.E*np.sin(phi)
+        Cx = self.cl * np.sin(phi) - self.cl/self.E*np.cos(phi)
+        
+        #Solidity
+        sigma = c*self.B/(2*np.pi*self.r)
+     
+        #Get residual c and ap
+        res_c = 4*np.pi*self.r*m.sin(phi)**2*F*2*self.a/(Cy*self.B*(1-self.a)) - c
+        res_ap = 1/(4*F*np.sin(phi)*np.cos(phi)/(sigma*Cx)-1) - ap
+        
+        return res_c,res_ap
+    
+    
+    def ChordOpt(self):
+        [self.c,self.ap] = np.zeros((2,len(self.mu)))
+        for i in range(len(self.mu)):
+            self.r = self.mu[i]*self.R #Radial position
+            x0 = [3,0.001] #Initial guess
+            bounds = ((0.0,0),(7,1)) #Lower and upper bounds
+            results = least_squares(self.residuals,x0,bounds=bounds) #Calculate with the least-squares method the chord and a'
+            self.c[i],self.ap[i] = results.x
             
+            
+        
+        
+    
+    
             
 Blade = Rotor()
 
-Blade.SetOperationalData(1,8,0)
+Blade.SetOperationalData(1,8,30)
     
 Blade_BEMT = BEMT(Blade)
 
 Blade_BEMT.Solver()
 
+#Integrate to get total CP
+Blade_BEMT.Results.Integrate(Blade)
+print('Thrust Coefficient=', Blade_BEMT.Results.CT)
+print('Power Coefficient=', Blade_BEMT.Results.CP)
+
+
+
 Validation = pd.read_csv('Validation/results.txt')
 
 Plotting(Blade,Blade_BEMT.Results,Validation)
 
+
+## Optimization
+# We want to optimize for a CT = 0.75
+CT_opt = 0.75
+a_opt = 1/2 - np.sqrt(1-CT_opt)/2
+
+Opti = Optimizer(Blade, a_opt)
+Opti.ChordOpt()
+
+fig = plt.figure()
+plt.plot(Opti.mu*Opti.R,Opti.c)
+plt.plot(Blade.mu*Blade.radius,Blade.chord)
+plt.xlabel('Span [m]')
+plt.ylabel('Chord [m]')
+plt.grid()
+plt.legend(['Optimal','Original'])
     
     
