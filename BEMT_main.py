@@ -1,11 +1,11 @@
 ## BEMT code using classes
 import numpy as np
 #import seaborn as sns
-import pandas as pd
+#import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.optimize import least_squares
-import math as m
-from BEMT_Utilities import Rotor,BEMT,Results,Optimizer,Plotting
+#import math as m
+from BEMT_Utilities import Rotor,BEMT,Optimizer,Plotting
 #from Mathieu import NicePlots
     
     
@@ -16,10 +16,39 @@ Rotor_org = Rotor()
 
 #Create an optimized rotor at CT=0.75
 CT_opt = 0.75
-a_opt = 1/2 - np.sqrt(1-CT_opt)/2 #Calculate the corresponding value of a
+a_opt = 1/2 - np.sqrt(1-CT_opt)/2 #Calculate the corresponding value of a as an initial guess
 
-Optimal_geo = Optimizer(Rotor_org, a_opt, TSR = 8)
-Rotor_opt = Rotor(Optimal_geo)
+for i in range(100):
+    #Get the blade geometry
+    Optimal_geo = Optimizer(Rotor_org, a_opt, TSR = 8)
+    
+    #Creat a rotor class with that geometry
+    Rotor_opt = Rotor(Optimal_geo)
+    
+    #Solve the BEMT with this rotor
+    BEMT_opt = BEMT(Rotor_opt)
+    BEMT_opt.Solver()
+    
+    #Evaluate the CT obtained
+    CT_res = BEMT_opt.Results.CT
+    if abs(CT_opt-CT_res)<0.001:
+        break
+    
+    #If it's not the desired one, correct the axial induction factor for the next iteration
+    if i>0:  
+        x = (CT_res-CT_opt)/(CT_res-CT_old/(a_opt-BEMT_opt.Results.a_global))
+        a_opt = a_opt + x
+    else:
+        a_opt = a_opt**2/BEMT_opt.Results.a_global
+       
+    CT_old = CT_res
+    
+    fig = plt.figure('Convergency')
+    plt.plot(i,CT_res,'o')
+
+    print(CT_res)
+    print('New a_opt',a_opt,'Result a_global',BEMT_opt.Results.a_global)
+    
 
 #Test different operational conditions
 TSR_list =  [6, 8, 10]
@@ -55,8 +84,8 @@ for TSR in TSR_list:
 
 
 #Generate CP-Pitch-Lambda plots for both turbines
-TSR_list =  list(np.linspace(6,12,10))
-theta_list = list(np.linspace(-7,0,10))
+TSR_list =  list(np.linspace(5,12,10))
+theta_list = list(np.linspace(-6,0,10))
 
 CpLambda_org = BEMT_org.CpLambda(TSR_list,theta_list)
 CpLambda_opt = BEMT_opt.CpLambda(TSR_list,theta_list)
@@ -66,16 +95,4 @@ CpLambda_opt = BEMT_opt.CpLambda(TSR_list,theta_list)
 
 Plotting(Rotor_org,Rotor_opt,Res_org,Res_opt,CpLambda_org,CpLambda_opt)
 
-## Optimization
-# We want to optimize for a CT = 0.75
 
-
-# fig = plt.figure()
-# plt.plot(Opti.mu*Opti.R,Opti.c)
-# plt.plot(Blade.mu*Blade.radius,Blade.chord)
-# plt.xlabel('Span [m]')
-# plt.ylabel('Chord [m]')
-# plt.grid()
-# plt.legend(['Optimal','Original'])
-    
-    
