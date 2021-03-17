@@ -8,7 +8,15 @@ Created on Tue Mar 16 19:03:39 2021
 import matplotlib.pyplot as plt
 import numpy as np
 
-
+'''
+Put this in main, change save or not save option and uncomment latex default text
+↓↓↓↓↓↓↓↓↓↓↓↓↓↓
+'''
+#plot_TSR(Res_org,Rotor_org,[6,8,10])
+#plot_yaw(Res_org,Rotor_org,[15,30])
+# plot_polars(Rotor_org)
+# plot_correction(Res_org, 8, 0)
+#plot_enthalpy(Res_org,Rotor_org,8,0)
 
 
 x = 6  # Want figures to be A6
@@ -62,7 +70,7 @@ def plot_yaw(results,param,yaw_lst):
                 psi=np.tile(psi.transpose(),(len(r[:,0]), 1))
                 pp=ax.contourf(psi,r , np.tile(Z,len(psi[0])),20)
             else:
-                #ax.set_theta_zero_location('NW') ## CHECK!!!!!!!
+                ax.set_theta_zero_location('N') ## CHECK!!!!!!!
                 r = np.hstack((dic.mu,dic.mu[:,0].reshape(len(dic.mu[:,0]),1)))
                 psi=dic.azimuth
                 psi=psi-psi[0]*np.ones(len(psi))
