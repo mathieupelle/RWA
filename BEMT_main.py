@@ -2,8 +2,8 @@
 import numpy as np
 #import seaborn as sns
 #import pandas as pd
-#import matplotlib.pyplot as plt
-#from scipy.optimize import least_squares
+import matplotlib.pyplot as plt
+from scipy.optimize import least_squares
 #import math as m
 from BEMT_Utilities import Rotor,BEMT,Optimizer,Plotting
 #from Mathieu import NicePlots
@@ -17,6 +17,9 @@ Rotor_org = Rotor()
 #Create an optimized rotor at CT=0.75
 CT_opt = 0.75
 a_opt = 1/2 - np.sqrt(1-CT_opt)/2 #Calculate the corresponding value of a
+
+#Test: correct the new value taking into account the actual a
+a_opt = a_opt**2/0.2275
 
 Optimal_geo = Optimizer(Rotor_org, a_opt, TSR = 8)
 Rotor_opt = Rotor(Optimal_geo)
@@ -54,8 +57,8 @@ for TSR in TSR_list:
 
 
 #Generate CP-Pitch-Lambda plots for both turbines
-TSR_list =  list(np.linspace(6,12,5))
-theta_list = list(np.linspace(-7,0,5))
+TSR_list =  list(np.linspace(5,12,7))
+theta_list = list(np.linspace(-6,0,6))
 
 CpLambda_org = BEMT_org.CpLambda(TSR_list,theta_list)
 CpLambda_opt = BEMT_opt.CpLambda(TSR_list,theta_list)
@@ -66,4 +69,3 @@ CpLambda_opt = BEMT_opt.CpLambda(TSR_list,theta_list)
 Plotting(Rotor_org,Rotor_opt,Res_org,Res_opt,CpLambda_org,CpLambda_opt)
 
 
-    

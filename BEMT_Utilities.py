@@ -23,7 +23,7 @@ class Rotor:
     self.radius = 50 #[m]
     self.n_blades = 3
     self.theta = -2 #Pitch angle [deg]
-    self.N_radial = 50 #Number of sections
+    self.N_radial = 20 #Number of sections
     self.mu = np.linspace(0.2,1,self.N_radial)
     self.beta = 14*(1-self.mu) #Twist angle in degrees
     self.chord = 3*(1-self.mu)+1 #Chord length in meters
@@ -52,7 +52,7 @@ class Rotor:
     
 class Results: #Create the variables to store the results from BEMT
     def __init__(self,N_radial,N_azimuth):
-        self.a,self.ap,self.phi,self.alpha,self.cl,self.cd,self.f_nor,self.f_tan,self.f,self.f_tip,self.f_root,self.ite,self.chord,self.beta,self.mu,self.circulation,self.enthalpy_3 =  np.zeros((17,N_radial-1,N_azimuth-1))
+        self.a,self.ap,self.phi,self.alpha,self.cl,self.cd,self.f_nor,self.f_tan,self.f,self.f_tip,self.f_root,self.ite,self.chord,self.beta,self.mu,self.circulation,self.enthalpy_3,self.local_CT,self.local_CQ =  np.zeros((19,N_radial-1,N_azimuth-1))
         self.azimuth = np.zeros(N_azimuth-1)
        # self.CT, self.CP, self.CQ, self.P, self.T, self.Q = np.zeros((6,1))
         
@@ -146,14 +146,12 @@ class BEMT:
                 
         #Yawed case 
         else: 
-            a_new = CT/(4*np.sqrt(1-a*(2*np.cos(yaw)-a)))
-        # else: 
-        #     if a:
-        #         a_new = CT/(4*np.sqrt(1-a*(2*np.cos(yaw)-a))) #If we have the value from previous iteration use it 
-        #     else: #Otherwise, solve numerically
-        #         func = lambda a : 4*a*np.sqrt(1-a*(2*np.cos(yaw)-a)) - CT
-        #         a_guess = 1/3
-        #         a_new = fsolve(func,a_guess)
+            if a:
+                a_new = CT/(4*np.sqrt(1-a*(2*np.cos(yaw)-a))) #If we have the value from previous iteration use it 
+            else: #Otherwise, solve numerically
+                func = lambda a : 4*a*np.sqrt(1-a*(2*np.cos(yaw)-a)) - CT
+                a_guess = 1/3
+                a_new = fsolve(func,a_guess)
                 
         return a_new
     
@@ -237,17 +235,20 @@ class BEMT:
                     
                     #Calcualte enthalpy at station 3 of the stream tube
                     self.Results.enthalpy_3[i,j] = 1/2*self.Rotor.wind_speed**2*(1-2*a)**2
+                    
+                    #Calculate local torque coefficient
+                    self.Results.local_CQ[i,j] = f_tan*mu*self.Rotor.radius*self.Rotor.n_blades/(0.5*self.Rotor.rho*self.Rotor.wind_speed**2*2*np.pi*mu*self.Rotor.radius**2*((self.Rotor.mu[i+1]-self.Rotor.mu[i])))
                         
                     #Store all the results
                     [self.Results.a[i,j],self.Results.ap[i,j],self.Results.phi[i,j],self.Results.alpha[i,j],self.Results.cl[i,j],
-                     self.Results.cd[i,j],self.Results.f_nor[i,j],self.Results.f_tan[i,j],self.Results.f[i,j],self.Results.f_tip[i,j],self.Results.f_root[i,j],self.Results.ite[i,j]] = \
-                        [a,ap,phi*180/np.pi,alpha*180/np.pi,cl,cd,f_nor,f_tan,f,f_tip,f_root,ite]
+                     self.Results.cd[i,j],self.Results.f_nor[i,j],self.Results.f_tan[i,j],self.Results.f[i,j],self.Results.f_tip[i,j],self.Results.f_root[i,j],self.Results.ite[i,j],self.Results.local_CT[i,j]] = \
+                        [a,ap,phi*180/np.pi,alpha*180/np.pi,cl,cd,f_nor,f_tan,f,f_tip,f_root,ite,CT]
          
         #Integrate forces to get total CP, CT, and CQ 
         self.Results.Integrate(self.Rotor) 
         
         #Calculate the global axial induction factor
-        #self.Results.a_global = self.NewInductionFactor(self.Results.CT, self.Rotor.yaw)
+        self.Results.a_global = self.NewInductionFactor(self.Results.CT, self.Rotor.yaw)
         
         
 
@@ -266,7 +267,7 @@ class BEMT:
             for theta in theta_list:
                 
                 #Assign TSR and theta
-                self.Rotor.SetOperationalData(self.Rotor.wind_speed,TSR,yaw=0)
+                self.Rotor.SetOperationalData(10,TSR,yaw=0)
                 self.Rotor.theta = theta
                 
                 #Solve BEMT
@@ -318,6 +319,7 @@ class Optimizer:
         Alpha = Rotor_original.polars['alpha']
         self.E = max(Cl/Cd)
         self.cl = Cl[np.argmax(Cl/Cd)]
+        self.cd = Cd[np.argmax(Cl/Cd)]
         self.aoa = Alpha[np.argmax(Cl/Cd)]
         
         #Execute the optimization for chord and twist
@@ -337,18 +339,20 @@ class Optimizer:
         f = self.B * (self.R-self.r)/(2*self.r*np.sin(phi))
         F = 2*m.acos(np.exp(-f))/np.pi
         
+        
         # #Root loss
-        # exp = np.exp(-self.B/2 * ((1-self.r/self.R)/(self.r/self.R)) * np.sqrt(1+self.TSR**2*(self.r/self.R)**2/(1-self.a)**2))
-        # f_tip = 2/np.pi * np.arccos(exp)
+        exp = np.exp(-self.B/2 * ((1-self.r/self.R)/(self.r/self.R)) * np.sqrt(1+self.TSR**2*(self.r/self.R)**2/(1-self.a)**2))
+        f_tip = 2/np.pi * np.arccos(exp)
         # #Root correction
-        # exp = np.exp(-self.B/2 * ((self.r/self.R-0.2)/(self.r/self.R)) * np.sqrt(1+self.TSR**2*(self.r/self.R)**2/(1-self.a)**2))
-        # f_root = 2/np.pi * np.arccos(exp)
-        # #Combined correction
-        # F = f_tip*f_root
+        exp = np.exp(-self.B/2 * ((self.r/self.R-0.2)/(self.r/self.R)) * np.sqrt(1+self.TSR**2*(self.r/self.R)**2/(1-self.a)**2))
+        f_root = 2/np.pi * np.arccos(exp)
+        ##Combined correction
+        F = f_tip*f_root
+        F = 1
         
         #Force coefficients
-        Cy = self.cl * np.cos(phi) + self.cl/self.E*np.sin(phi)
-        Cx = self.cl * np.sin(phi) - self.cl/self.E*np.cos(phi)
+        Cy = self.cl * np.cos(phi) + self.cd*np.sin(phi)
+        Cx = self.cl * np.sin(phi) - self.cd*np.cos(phi)
         
         #Solidity
         sigma = c*self.B/(2*np.pi*self.r)
@@ -356,6 +360,7 @@ class Optimizer:
         #Get residual c and ap
         res_c = 4*np.pi*self.r*m.sin(phi)**2*F*2*self.a/(Cy*self.B*(1-self.a)) - c
         res_ap = 1/(4*F*np.sin(phi)*np.cos(phi)/(sigma*Cx)-1) - ap
+        
         
         return res_c,res_ap
     
@@ -366,7 +371,7 @@ class Optimizer:
             self.r = self.mu[i]*self.R #Radial position
             x0 = [3,0.001] #Initial guess
             bounds = ((0.0,0),(7,1)) #Lower and upper bounds
-            results = least_squares(self.residuals,x0,bounds=bounds) #Calculate with the least-squares method the chord and a'
+            results = least_squares(self.residuals,x0,bounds=bounds,verbose=0) #Calculate with the least-squares method the chord and a'
             self.chord[i],self.ap[i] = results.x
             
     def TwistOpt(self):
@@ -421,7 +426,6 @@ def Plotting(Rotor_org,Rotor_opt,Results_org,Results_opt,Cp_lambda_org,Cp_lambda
     plt.clabel(CS, inline=1, fontsize=10)
     plt.xlabel('Tip speed ratio [-]')
     plt.ylabel('Pitch angle [deg]')
-    plt.legend()
     plt.title('Power coefficient CP [-] (Original design)')
     
     fig = plt.figure('CP-lambda-theta optimized')
@@ -429,7 +433,6 @@ def Plotting(Rotor_org,Rotor_opt,Results_org,Results_opt,Cp_lambda_org,Cp_lambda
     plt.clabel(CS, inline=1, fontsize=10)
     plt.xlabel('Tip speed ratio [-]')
     plt.ylabel('Pitch angle [deg]')
-    plt.legend()
     plt.title('Power coefficient CP [-] (Optimized design)')
     plt.plot(8,Rotor_opt.theta,'x',color='black')
 
@@ -439,7 +442,6 @@ def Plotting(Rotor_org,Rotor_opt,Results_org,Results_opt,Cp_lambda_org,Cp_lambda
     plt.clabel(CS, inline=1, fontsize=10)
     plt.xlabel('Tip speed ratio [-]')
     plt.ylabel('Pitch angle [deg]')
-    plt.legend()
     plt.title('Thrust coefficient CT [-] (Original design)')
     
     fig = plt.figure('CT-lambda-theta optimized')
@@ -447,7 +449,6 @@ def Plotting(Rotor_org,Rotor_opt,Results_org,Results_opt,Cp_lambda_org,Cp_lambda
     plt.clabel(CS, inline=1, fontsize=10)
     plt.xlabel('Tip speed ratio [-]')
     plt.ylabel('Pitch angle [deg]')
-    plt.legend()
     plt.title('Thrust coefficient CT [-] (Optimized design)')
     plt.plot(8,Rotor_opt.theta,'x',color='black')
     
@@ -458,7 +459,6 @@ def Plotting(Rotor_org,Rotor_opt,Results_org,Results_opt,Cp_lambda_org,Cp_lambda
     plt.clabel(CS, inline=1, fontsize=10)
     plt.xlabel('Tip speed ratio [-]')
     plt.ylabel('Pitch angle [deg]')
-    plt.legend()
     plt.title('Torque coefficient CQ [-] (Original design)')
     
     fig = plt.figure('CQ-lambda-theta optimized')
@@ -466,7 +466,6 @@ def Plotting(Rotor_org,Rotor_opt,Results_org,Results_opt,Cp_lambda_org,Cp_lambda
     plt.clabel(CS, inline=1, fontsize=10)
     plt.xlabel('Tip speed ratio [-]')
     plt.ylabel('Pitch angle [deg]')
-    plt.legend()
     plt.title('Torque coefficient CQ [-] (Optimized design)')
     plt.plot(8,Rotor_opt.theta,'x',color='black')
     
