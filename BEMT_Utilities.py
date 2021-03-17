@@ -23,7 +23,7 @@ class Rotor:
     self.radius = 50 #[m]
     self.n_blades = 3
     self.theta = -2 #Pitch angle [deg]
-    self.N_radial = 20 #Number of sections
+    self.N_radial = 40 #Number of sections
     self.mu = np.linspace(0.2,1,self.N_radial)
     self.beta = 14*(1-self.mu) #Twist angle in degrees
     self.chord = 3*(1-self.mu)+1 #Chord length in meters
@@ -314,9 +314,17 @@ class Optimizer:
         self.mu = Rotor_original.mu
         
         #Calculate optimal Cl and E
-        Cl = Rotor_original.polars['Cl']
-        Cd = Rotor_original.polars['Cd']
-        Alpha = Rotor_original.polars['alpha']
+        Alpha_pol = Rotor_original.polars['alpha']
+        Cl_pol = Rotor_original.polars['Cl']
+        Cd_pol = Rotor_original.polars['Cd']
+        
+        
+        Alpha = np.linspace(0,15) #Create a more dense array of alpha to get more resolution
+        #Interpolate the corresponding values of Cl and Cd
+        Cl = np.interp(Alpha,Alpha_pol,Cl_pol)
+        Cd = np.interp(Alpha,Alpha_pol,Cd_pol)               
+        
+        #Select the point with the maximum efficiency
         self.E = max(Cl/Cd)
         self.cl = Cl[np.argmax(Cl/Cd)]
         self.cd = Cd[np.argmax(Cl/Cd)]
@@ -348,7 +356,7 @@ class Optimizer:
         f_root = 2/np.pi * np.arccos(exp)
         ##Combined correction
         F = f_tip*f_root
-        F = 1
+        
         
         #Force coefficients
         Cy = self.cl * np.cos(phi) + self.cd*np.sin(phi)
@@ -370,7 +378,11 @@ class Optimizer:
         for i in range(len(self.mu)):
             self.r = self.mu[i]*self.R #Radial position
             x0 = [3,0.001] #Initial guess
-            bounds = ((0.0,0),(7,1)) #Lower and upper bounds
+            #Lower and upper bounds
+            if self.mu[i]<0.5:
+                bounds = ((1.5,0),(7,1)) #Minimum 1.5m at the root for structural reasons
+            else: 
+                bounds = ((0.3,0),(7,1)) #Minimum 0.3 at the tip to avoid c=0
             results = least_squares(self.residuals,x0,bounds=bounds,verbose=0) #Calculate with the least-squares method the chord and a'
             self.chord[i],self.ap[i] = results.x
             
