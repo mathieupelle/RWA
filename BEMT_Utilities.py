@@ -51,7 +51,8 @@ class Rotor:
     
 class Results: #Create the variables to store the results from BEMT
     def __init__(self,N_radial,N_azimuth):
-        self.a,self.ap,self.phi,self.alpha,self.cl,self.cd,self.f_nor,self.f_tan,self.f,self.ite,self.mu,self.chord,self.beta =  np.zeros((13,N_radial-1,N_azimuth-1))
+        self.a,self.ap,self.phi,self.alpha,self.cl,self.cd,self.f_nor,self.f_tan,self.f,self.ite,self.chord,self.beta,self.mu =  np.zeros((13,N_radial-1,N_azimuth-1))
+        self.azimuth = np.zeros(N_azimuth-1)
        # self.CT, self.CP, self.CQ, self.P, self.T, self.Q = np.zeros((6,1))
         
     def Integrate(self,Rotor):
@@ -113,6 +114,7 @@ class BEMT:
         return lift,drag,f_tan,f_nor
     
     def NewInductionFactor(self,CT,yaw,a):
+        
         if yaw == 0:
             CT_1 = 1.816 #Constants for the empirical calculation
             CT_2 = 2*np.sqrt(CT_1) - CT_1
@@ -165,6 +167,7 @@ class BEMT:
                 
             for j in range(N_azimuth-1):
                     azimuth = (self.Rotor.azimuth[j]+self.Rotor.azimuth[j+1])/2
+                    self.Results.azimuth[j] = azimuth
                     
                     a,ap = (0.2,0.2) #Initialize induction factors
                     for ite in range(N_iter_max):
@@ -212,7 +215,6 @@ class BEMT:
         CP = np.zeros((len(TSR_list),len(theta_list)))
         CT = np.zeros((len(TSR_list),len(theta_list)))
         
-        print('Computing Cp-Lambda-Theta contours...')
         i=1 
                       
         for TSR in TSR_list:
@@ -226,7 +228,7 @@ class BEMT:
                 self.Solver()
                 
                 #Output a status message
-                print('Point ',i,' out of ', CP.size,' calculated')
+                print('Cp-TSR-Theta contours: Point',i,'out of', CP.size,'calculated')
                 i = i+1
                 
                 #Store the results
@@ -337,37 +339,57 @@ def Plotting(Rotor_org,Rotor_opt,Results_org,Results_opt,Cp_lambda_org,Cp_lambda
     
     #Compare blade geometries
     fig = plt.figure('Chord distribution')
-    plt.plot(Rotor_org.mu*Rotor_org.radius,Rotor_org.chord)
-    plt.plot(Rotor_opt.mu*Rotor_opt.radius,Rotor_opt.chord)
+    plt.plot(Rotor_org.mu,Rotor_org.chord)
+    plt.plot(Rotor_opt.mu,Rotor_opt.chord)
     plt.legend(['Original','Optimized'])
-    plt.xlabel('Span [m]')
+    plt.xlabel('Radius r/R [-]')
     plt.ylabel('Chord [m]')
     plt.grid()
     
     fig = plt.figure('Twist distribution')
-    plt.plot(Rotor_org.mu*Rotor_org.radius,Rotor_org.beta)
-    plt.plot(Rotor_opt.mu*Rotor_opt.radius,Rotor_opt.beta)
+    plt.plot(Rotor_org.mu,Rotor_org.beta)
+    plt.plot(Rotor_opt.mu,Rotor_opt.beta)
     plt.legend(['Original','Optimized'])
-    plt.xlabel('Span [m]')
+    plt.xlabel('Radius r/R [-]')
     plt.ylabel('Twist [deg]')
     plt.grid()
     
     
     #Plot CP-lambda-theta contours
     fig = plt.figure('CP-lambda-theta')
-    CS = plt.contour(Cp_lambda_org['TSR'],Cp_lambda_org['theta'],Cp_lambda_org['CP'].transpose(),cmap='viridis')
+    CS = plt.contour(Cp_lambda_org['TSR'],Cp_lambda_org['theta'],Cp_lambda_org['CP'].transpose(),cmap='jet',levels=10)
     plt.clabel(CS, inline=1, fontsize=10)
     plt.xlabel('Tip speed ratio [-]')
     plt.ylabel('Pitch angle [deg]')
     plt.legend()
-    plt.title('Power coefficient CP [-] - Original design')
+    plt.title('Power coefficient CP [-] (Original design)')
     
     fig = plt.figure('CP-lambda-theta optimized')
-    CS = plt.contour(Cp_lambda_opt['TSR'],Cp_lambda_opt['theta'],Cp_lambda_opt['CP'].transpose(),cmap='jet')
+    CS = plt.contour(Cp_lambda_opt['TSR'],Cp_lambda_opt['theta'],Cp_lambda_opt['CP'].transpose(),cmap='jet',levels=10)
     plt.clabel(CS, inline=1, fontsize=10)
     plt.xlabel('Tip speed ratio [-]')
     plt.ylabel('Pitch angle [deg]')
     plt.legend()
-    plt.title('Power coefficient CP [-] - Optimized design')
+    plt.title('Power coefficient CP [-] (Optimized design)')
+    plt.plot(8,Rotor_opt.theta,'x',color='black')
+
+    
+    fig = plt.figure('CT-lambda-theta')
+    CS = plt.contour(Cp_lambda_org['TSR'],Cp_lambda_org['theta'],Cp_lambda_org['CT'].transpose(),cmap='jet',levels=10)
+    plt.clabel(CS, inline=1, fontsize=10)
+    plt.xlabel('Tip speed ratio [-]')
+    plt.ylabel('Pitch angle [deg]')
+    plt.legend()
+    plt.title('Thrust coefficient CT [-] (Original design)')
+    
+    fig = plt.figure('CT-lambda-theta optimized')
+    CS = plt.contour(Cp_lambda_opt['TSR'],Cp_lambda_opt['theta'],Cp_lambda_opt['CT'].transpose(),cmap='jet',levels=10)
+    plt.clabel(CS, inline=1, fontsize=10)
+    plt.xlabel('Tip speed ratio [-]')
+    plt.ylabel('Pitch angle [deg]')
+    plt.legend()
+    plt.title('Thrust coefficient CT [-] (Optimized design)')
+    plt.plot(8,Rotor_opt.theta,'x',color='black')
+    
     
     
