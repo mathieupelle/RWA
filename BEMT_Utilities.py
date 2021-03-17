@@ -237,7 +237,7 @@ class BEMT:
                     self.Results.enthalpy_3[i,j] = 1/2*self.Rotor.wind_speed**2*(1-2*a)**2
                     
                     #Calculate local torque coefficient
-                    self.Results.local_CQ[i,j] = f_tan*mu*self.Rotor.radius*self.Rotor.n_blades/(0.5*self.Rotor.rho*self.Rotor.wind_speed**2*2*np.pi*mu*self.Rotor.radius**2*((self.Rotor.mu[i+1]-self.Rotor.mu[i])))
+                    self.Results.local_CQ[i,j] = f_tan*mu*self.Rotor.radius*self.Rotor.n_blades/(0.5*self.Rotor.rho*self.Rotor.wind_speed**2*np.pi*self.Rotor.radius**3)
                         
                     #Store all the results
                     [self.Results.a[i,j],self.Results.ap[i,j],self.Results.phi[i,j],self.Results.alpha[i,j],self.Results.cl[i,j],
