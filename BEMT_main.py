@@ -1,11 +1,11 @@
 ## BEMT code using classes
 import numpy as np
 #import seaborn as sns
-import pandas as pd
-import matplotlib.pyplot as plt
-from scipy.optimize import least_squares
-import math as m
-from BEMT_Utilities import Rotor,BEMT,Results,Optimizer,Plotting
+#import pandas as pd
+#import matplotlib.pyplot as plt
+#from scipy.optimize import least_squares
+#import math as m
+from BEMT_Utilities import Rotor,BEMT,Optimizer,Plotting
 #from Mathieu import NicePlots
     
     
@@ -20,7 +20,6 @@ a_opt = 1/2 - np.sqrt(1-CT_opt)/2 #Calculate the corresponding value of a
 
 Optimal_geo = Optimizer(Rotor_org, a_opt, TSR = 8)
 Rotor_opt = Rotor(Optimal_geo)
-
 #Test different operational conditions
 TSR_list =  [6, 8, 10]
 yaw_angles_list = [0, 15, 30]
@@ -55,8 +54,8 @@ for TSR in TSR_list:
 
 
 #Generate CP-Pitch-Lambda plots for both turbines
-TSR_list =  list(np.linspace(6,12,10))
-theta_list = list(np.linspace(-7,0,10))
+TSR_list =  list(np.linspace(6,12,5))
+theta_list = list(np.linspace(-7,0,5))
 
 CpLambda_org = BEMT_org.CpLambda(TSR_list,theta_list)
 CpLambda_opt = BEMT_opt.CpLambda(TSR_list,theta_list)
@@ -66,16 +65,5 @@ CpLambda_opt = BEMT_opt.CpLambda(TSR_list,theta_list)
 
 Plotting(Rotor_org,Rotor_opt,Res_org,Res_opt,CpLambda_org,CpLambda_opt)
 
-## Optimization
-# We want to optimize for a CT = 0.75
 
-
-# fig = plt.figure()
-# plt.plot(Opti.mu*Opti.R,Opti.c)
-# plt.plot(Blade.mu*Blade.radius,Blade.chord)
-# plt.xlabel('Span [m]')
-# plt.ylabel('Chord [m]')
-# plt.grid()
-# plt.legend(['Optimal','Original'])
-    
     
