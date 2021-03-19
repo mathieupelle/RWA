@@ -10,8 +10,12 @@ import numpy as np
 
 '''
 Put this in main, change save or not save option and uncomment latex default text
+Also download file called spacing_data and uncomment last function to plot spacing effect
 ↓↓↓↓↓↓↓↓↓↓↓↓↓↓
 '''
+
+#from fplot import*
+
 #plot_TSR(Res_org,Rotor_org,[6,8,10])
 #plot_yaw(Res_org,Rotor_org,[15,30])
 # plot_polars(Rotor_org)
@@ -122,10 +126,12 @@ def plot_correction(results, TSR, Yaw):
 def plot_enthalpy(results, param, TSR, Yaw):
     dic=results['TSR'+str(TSR)+'_yaw'+str(Yaw)]
     dic2=param
-    enthalpy_1=np.ones((len(dic.mu),1))*(101325/dic2.rho+dic2.wind_speed**2/2)
+    enthalpy_ref=101325/dic2.rho+dic2.wind_speed**2/2
+    enthalpy_1=np.ones((len(dic.mu),1))*(101325/dic2.rho+dic2.wind_speed**2/2)/enthalpy_ref
     enthalpy_2=enthalpy_1
-    enthalpy_3=dic.enthalpy_3+np.ones((len(dic.enthalpy_3),1))*101325/dic2.rho
-    enthalpy_4=np.ones((len(dic.mu),1))*((dic2.wind_speed*(1-2*dic.a_global))**2/2+101325/dic2.rho)
+    enthalpy_3=(dic.enthalpy_3+np.ones((len(dic.enthalpy_3),1))*101325/dic2.rho)/enthalpy_ref
+    #enthalpy_4=np.ones((len(dic.mu),1))*((dic2.wind_speed*(1-2*dic.a_global))**2/2+101325/dic2.rho)/enthalpy_ref
+    enthalpy_4=np.ones((len(dic.mu),1))*((dic2.wind_speed*(1-2*np.mean(dic.a)))**2/2+101325/dic2.rho)/enthalpy_ref
     plt.figure()
     plt.grid()
     plt.plot(dic.mu, enthalpy_1, 'k', linewidth=2.5, label='Infinity upstream',zorder=1)
@@ -139,19 +145,39 @@ def plot_enthalpy(results, param, TSR, Yaw):
         plt.savefig('figures/enthalpy_'+str(TSR)+'_'+str(Yaw)+'.pdf')
 
 
-# Need data for radial spacing on axial induction
 
-# def plot_spacing(results,TSR,Yaw):
-#     dic=results['TSR'+str(TSR)+'_yaw'+str(Yaw)]
+# Spacing plot, uncomment if you have the put the spacing_data file in the same folder
+
+# def plot_spacing(TSR,Yaw):
+#     key='TSR'+str(TSR)+'_yaw'+str(Yaw)
 #     plt.figure()
 #     plt.grid()
-#     plt.plot(dic.mu, dic.a,'b-x', label='Constant spacing N='+str(len(dic.mu)),zorder=2)
-#     plt.plot(dic.mu, dic.a,'g-x', label='Constant spacing N='+str(len(dic.mu)),zorder=1)
-#     plt.plot(dic.mu, dic.a,'r--x', label='Cosine spacing',zorder=3)
+#     points_N=[20,40]
+#     marker=['-o','-x']
+#     for i in range(len(points_N)):
+#         results1 = np.load('spacing_data\dicN'+str(points_N[i])+'.npy',allow_pickle='TRUE').item()
+#         dic1=results1[key]
+#         plt.plot(dic1.mu, dic1.a, marker[i],markersize=7, label='Constant spacing N='+str(len(dic1.mu)))
 #     plt.xlabel('r/R')
 #     plt.ylabel('a [-]')
 #     plt.legend()
 #     if save==True:
-#         plt.savefig('figures/tip_corrections_'+str(TSR)+'_'+str(Yaw)+'.pdf')
+#         plt.savefig('figures/spacing1_'+str(TSR)+'_'+str(Yaw)+'.pdf')
+
+#     points_cos=[40,40]
+#     plt.figure()
+#     plt.grid()
+#     results1 = np.load('spacing_data\dicN'+str(points_cos[i])+'.npy',allow_pickle='TRUE').item()
+#     results2 = np.load('spacing_data\diccos'+str(points_cos[i])+'.npy',allow_pickle='TRUE').item()
+#     dic1=results1[key]
+#     dic2=results2[key]
+#     plt.plot(dic2.mu, dic2.a,'-o',markersize=5, label='Cosine spacing N='+str(len(dic2.mu)))
+#     plt.plot(dic1.mu, dic1.a,'-x',markersize=8, label='Constant spacing N='+str(len(dic2.mu)))
+#     plt.xlabel('r/R')
+#     plt.ylabel('a [-]')
+#     plt.legend()
+#     if save==True:
+#         plt.savefig('figures/spacing2_'+str(TSR)+'_'+str(Yaw)+'.pdf')
 
 
+# plot_spacing(8,0)
