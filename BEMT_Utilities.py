@@ -482,4 +482,41 @@ def Plotting(Rotor_org,Rotor_opt,Results_org,Results_opt,Cp_lambda_org,Cp_lambda
     plt.plot(8,Rotor_opt.theta,'x',color='black')
     
     
+    #Compare original vs optimal design
+    rho = Rotor_org.rho
+    wind_speed = Rotor_org.wind_speed
+    radius = Rotor_org.radius
+    n_blades = Rotor_org.n_blades
+    omega = Rotor_org.omega
+    
+    var=['alpha','phi','a','ap','f_tan','f_nor','circulation','local_CQ','f','cl','cd']
+    labels=[r'$\alpha$ [deg]','$\phi$ [deg]', 'a [-]','$a^,[-]$', '$C_t$ [-]', '$C_n$ [-]','$\Gamma$ [-]','$C_q [-]$','Prantl\'s tip loss factor','$C_l$','$C_d$']
+    for i in range(len(var)):
+        plt.figure()
+        plt.grid()
+        plt.xlabel(r'Radius $\frac{r}{R}$ [-]')
+        plt.ylabel(labels[i])
+
+        dic=Results_org['TSR8_yaw0']
+        dic_opt = Results_opt['TSR8_yaw0']
+        if var[i]=='f_tan' or var[i]=='f_nor':
+            Z=getattr(dic, str(var[i]))/(0.5*rho*wind_speed**2*radius)
+            Z_opt=getattr(dic_opt, str(var[i]))/(0.5*rho*wind_speed**2*radius)
+        elif var[i]=='circulation':
+            Z=getattr(dic, str(var[i]))/((np.pi*wind_speed**2/(n_blades*omega)))
+            Z_opt=getattr(dic_opt, str(var[i]))/((np.pi*wind_speed**2/(n_blades*omega)))
+        else:
+            Z=getattr(dic, str(var[i]))
+            Z_opt=getattr(dic_opt, str(var[i]))
+
+        plt.plot(dic.mu,Z,label='Original design')
+        plt.plot(dic_opt.mu,Z_opt,label='Optimized design')
+
+        
+
+        plt.legend()
+        if False:
+            plt.savefig('figures/TSR_'+str(var[i])+'.pdf')
+    
+    
     

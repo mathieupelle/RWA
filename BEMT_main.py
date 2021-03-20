@@ -1,12 +1,10 @@
-## BEMT code using classes
+## Blade Element Momentum Code
+## TU Delft - Rotor Wake Aerdoynamics - Assignment 1
+## Group 1: Mathieu Pellé, Nils Gaukroger, Guillem Vergés i Plaza
+
 import numpy as np
-#import seaborn as sns
-#import pandas as pd
 import matplotlib.pyplot as plt
-from scipy.optimize import least_squares
-#import math as m
 from BEMT_Utilities import Rotor,BEMT,Optimizer,Plotting
-#from Mathieu import NicePlots
     
     
             
