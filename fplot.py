@@ -7,27 +7,33 @@ Created on Tue Mar 16 19:03:39 2021
 
 import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib as mpl
+
 
 '''
-Put this in main, change save or not save option and uncomment latex default text
-Also download file called spacing_data and uncomment last function to plot spacing effect
+1) Uncomment latex defaul text
+2) Create folder in directory called 'Figures'
+3) Put this in main
 ↓↓↓↓↓↓↓↓↓↓↓↓↓↓
 '''
 
 #from fplot import*
 
 #plot_TSR(Res_org,Rotor_org,[6,8,10])
-#plot_yaw(Res_org,Rotor_org,[15,30])
+#plot_yaw(Res_org,Rotor_org,[0,15,30])
 # plot_polars(Rotor_org)
 # plot_correction(Res_org, 8, 0)
-#plot_enthalpy(Res_org,Rotor_org,8,0)
+# plot_enthalpy(Res_org,Rotor_org,8,0)
+#enthalpy_tube(Res_org,Rotor_org,8,0)
 
 
 x = 6  # Want figures to be A6
 plt.rc('figure', figsize=[46.82 * .5**(.5 * x), 33.11 * .5**(.5 * x)]   )
 #plt.rc('text', usetex=True)
 plt.rc('font', family='serif')
-save=False
+
+
+save=False # Save or not
 
 def plot_TSR(results,param,TSR_lst):
     var=['alpha','phi','a','ap','f_tan','f_nor','circulation','local_CQ']
@@ -69,25 +75,24 @@ def plot_yaw(results,param,yaw_lst):
                 dic2=results['TSR'+str(8)+'_yaw'+str(yaw_lst[1])]
                 r = np.hstack((dic2.mu,dic2.mu[:,0].reshape(len(dic2.mu[:,0]),1)))
                 psi=dic2.azimuth
-                psi=psi-psi[0]*np.ones(len(psi))
-                psi=np.append(psi,2*np.pi)
+                psi=np.append(psi,2*np.pi+psi[0])
                 psi=np.tile(psi.transpose(),(len(r[:,0]), 1))
                 pp=ax.contourf(psi,r , np.tile(Z,len(psi[0])),20)
+                ax.set_rlabel_position(225)
             else:
                 ax.set_theta_zero_location('N') ## CHECK!!!!!!!
                 r = np.hstack((dic.mu,dic.mu[:,0].reshape(len(dic.mu[:,0]),1)))
                 psi=dic.azimuth
-                psi=psi-psi[0]*np.ones(len(psi))
-                psi=np.append(psi,2*np.pi)
+                psi=np.append(psi,2*np.pi+psi[0])
                 psi=np.tile(psi.transpose(),(len(r[:,0]), 1))
                 Z = np.hstack((Z,Z[:,0].reshape(len(Z[:,0]),1)))
                 pp=ax.contourf(psi,r,Z,20)
-            ax.set_rlabel_position(135) ## Change depending on visualisation
+                ax.set_rlabel_position(135)
             rlabels = ax.get_ymajorticklabels()
             for label in rlabels:
                 label.set_color('white')
-            cbar = plt.colorbar(pp, orientation='vertical', pad=0.1)
-            cbar.ax.set_ylabel(labels[j])
+            cbar = plt.colorbar(pp, pad=0.1)
+            cbar.ax.set_ylabel(labels[j], rotation=270, labelpad=15)
             plt.set_cmap('viridis')
             if save==True:
                 plt.savefig('figures/Yaw'+str(yaw_lst[i])+'_'+str(var[j])+'.pdf')
@@ -114,38 +119,117 @@ def plot_correction(results, TSR, Yaw):
     dic=results['TSR'+str(TSR)+'_yaw'+str(Yaw)]
     plt.figure()
     plt.grid()
-    plt.plot(dic.mu, dic.f,color='k', label='Prandtl',zorder=1)
+    plt.plot(dic.mu, dic.f,color='k', label='Prandtl total',zorder=1)
     plt.scatter(dic.mu, dic.f_tip,marker='.',s=80, label='Prandtl tip', zorder=2)
     plt.scatter(dic.mu, dic.f_root,marker='.',s=80, label='Prandtl root', zorder=3)
-    plt.xlabel('r/R')
+    plt.xlabel('r/R [-]')
     plt.ylabel('f [-]')
     plt.legend()
     if save==True:
         plt.savefig('figures/tip_corrections_'+str(TSR)+'_'+str(Yaw)+'.pdf')
 
-def plot_enthalpy(results, param, TSR, Yaw):
+def plot_enthalpy_tube(results, param, TSR, Yaw):
+
+
     dic=results['TSR'+str(TSR)+'_yaw'+str(Yaw)]
     dic2=param
-    enthalpy_ref=101325/dic2.rho+dic2.wind_speed**2/2
-    enthalpy_1=np.ones((len(dic.mu),1))*(101325/dic2.rho+dic2.wind_speed**2/2)/enthalpy_ref
-    enthalpy_2=enthalpy_1
-    enthalpy_3=(dic.enthalpy_3+np.ones((len(dic.enthalpy_3),1))*101325/dic2.rho)/enthalpy_ref
-    #enthalpy_4=np.ones((len(dic.mu),1))*((dic2.wind_speed*(1-2*dic.a_global))**2/2+101325/dic2.rho)/enthalpy_ref
-    enthalpy_4=np.ones((len(dic.mu),1))*((dic2.wind_speed*(1-2*np.mean(dic.a)))**2/2+101325/dic2.rho)/enthalpy_ref
+
+    p_inf=0
+
+
+    mu1=np.zeros((len(dic.mu),1))
+    mu2=dic.mu
+    mu3=mu2
+    mu4=np.zeros((len(dic.mu),1))
+    h1=np.zeros((len(dic.mu),1))
+    h3=np.zeros((len(dic.mu),1))
+    for i in range(len(mu2)):
+        mu1[i]=mu2[i]*np.sqrt((1-dic.a[i]*dic.f[i]))
+        mu4[i]=mu2[i]*np.sqrt((1-dic.a[i]*dic.f[i])/(1-2*dic.a[i]*dic.f[i]))
+        h1[i]=p_inf/param.rho+0.5*param.wind_speed**2
+        h3[i]=p_inf/param.rho+0.5*param.wind_speed**2*(1-2*dic.a[i]*dic.f[i])**2/h1[i]
+
+    h1=h1/h1[0]
+    h2=h1
+    h4=h3
+    Z=np.ones((len(dic.mu),1))
+
+
+    u = np.linspace(0,  2*np.pi, 100)
+
+    pos=[0,400,700,1200]
+
+    x1 = np.outer(mu1, np.cos(u))
+    y1 = np.outer(mu1, np.sin(u))
+    z1 = np.zeros((len(mu1),len(u)))
+
+    x2 = np.outer(mu2, np.cos(u))
+    y2 = np.outer(mu2, np.sin(u))
+    z2 = pos[1]*np.ones((len(mu1),len(u)))
+
+    x3 = np.outer(mu3, np.cos(u))
+    y3 = np.outer(mu3, np.sin(u))
+    z3 = pos[2]*np.ones((len(mu1),len(u)))
+
+    x4 = np.outer(mu4, np.cos(u))
+    y4 = np.outer(mu4, np.sin(u))
+    z4 = pos[3]*np.ones((len(mu1),len(u)))
+
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111, projection='3d')
+    ax.plot_surface(x1,z1,y1, color='r')
+    ax.plot_surface(x2,z2,y2,  color='r')
+    scamap = plt.cm.ScalarMappable(cmap='viridis')
+    fcolors = scamap.to_rgba(np.tile(h3,100))
+    ax.plot_surface(x3,z3,y3, facecolors=fcolors, cmap='viridis',vmin=0, vmax=50)
+    ax.plot_surface(x4,z4,y4, facecolors=fcolors, cmap='viridis',vmin=0, vmax=50)
+
+    cb = fig.colorbar(scamap)
+    cb.set_label(r'$h_0$ [-]', rotation=0,fontsize=18,labelpad=15)
+    cb.ax.tick_params(labelsize=12)
+    fake2Dline = mpl.lines.Line2D([0],[0], linestyle="none", c='r', marker = 'o')
+    ax.legend([fake2Dline], [r'$h_0$ = 1'], numpoints = 1, fontsize=18)
+
+    ax.set_yticks(pos)
+    ax.set_yticklabels(['Infinity Upwind','Rotor Upwind','Rotor Downwind','Infinity Downwind'],rotation=-45,)
+    ax.set_xlabel('x', fontsize=16)
+    ax.set_zlabel('y', fontsize=16)
+    ax.tick_params(axis='both', which='major', labelsize=10)
+    ax.tick_params(axis='y', which='major', labelsize=12)
+
+    ax.view_init(11,-18)
+    if save==True:
+        plt.savefig('figures/enthalpy1_'+str(TSR)+'_'+str(Yaw)+'.pdf')
+
+    #Ugly plot 1
     plt.figure()
     plt.grid()
-    plt.plot(dic.mu, enthalpy_1, 'k', linewidth=2.5, label='Infinity upstream',zorder=1)
-    plt.plot(dic.mu, enthalpy_2, 'm--',label='Rotor upwind',zorder=2)
-    plt.plot(dic.mu, enthalpy_3, label='Rotor downwind',zorder=3)
-    plt.plot(dic.mu, enthalpy_4, label='Infinity downwind',zorder=4)
-    plt.xlabel('r/R')
-    plt.ylabel(r'$h_0$ [-]')
-    plt.legend(bbox_to_anchor = [0.58, 0.5])
+    plt.plot(mu1,h1,label='Infinity Upwind')
+    plt.plot(mu2,h2,label='Rotor Upwind')
+    plt.plot(mu3,h3,label='Rotor Downwind')
+    plt.plot(mu4,h4,label='Infinity Downwind')
+    plt.xlabel('r/R [-]')
+    plt.ylabel('h_0 [-]')
+    plt.legend()
+
     if save==True:
-        plt.savefig('figures/enthalpy_'+str(TSR)+'_'+str(Yaw)+'.pdf')
+        plt.savefig('figures/enthalpy2_'+str(TSR)+'_'+str(Yaw)+'.pdf')
+
+    #Ugly plot 2
+    # plt.grid()
+    # plt.plot(Z*0,mu1)
+    # plt.plot(Z,mu2)
+    # plt.plot(2*Z,mu3)
+    # plt.plot(3*Z,mu4)
+    # plt.plot(Z*0,-mu1)
+    # plt.plot(Z,-mu2)
+    # plt.plot(2*Z,-mu3)
+    # plt.plot(3*Z,-mu4)
 
 
+# = = = = = = = = = =   OLD  = = = = = = = = = = = = = #
 
+# NOT NEEDED now
 # Spacing plot, uncomment if you have the put the spacing_data file in the same folder
 
 # def plot_spacing(TSR,Yaw):
