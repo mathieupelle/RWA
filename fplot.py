@@ -84,6 +84,10 @@ def plot_yaw(results,param,yaw_lst):
                 cmin=Z.min()
             if cmin<0:
                 cmin=0
+            if var[j]=='a':
+                cmax=0.5
+            if var[j]=='ap':
+                cmax=0.05
 
         for i in range(len(yaw_lst)):
             dic=results['TSR'+str(8)+'_yaw'+str(yaw_lst[i])]
