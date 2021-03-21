@@ -8,6 +8,7 @@ Created on Tue Mar 16 19:03:39 2021
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib as mpl
+import matplotlib.cm as cm
 
 
 '''
@@ -60,10 +61,15 @@ def plot_TSR(results,param,TSR_lst):
 def plot_yaw(results,param,yaw_lst):
     var=['alpha','phi','a','ap','f_tan','f_nor','circulation','local_CQ']
     labels=[r'$\alpha$ [deg]','$\phi$ [deg]', 'a [-]','$a^,[-]$', '$C_t$ [-]', '$C_n$ [-]','$\Gamma$ [-]','$C_q [-]$']
-    for i in range(len(yaw_lst)):
-        for j in range(len(var)):
+
+    for j in range(len(var)):
+        fig, axs = plt.subplots(1, 3, figsize=(12,5),subplot_kw=dict(projection='polar'))
+        fig.tight_layout()
+        fig.subplots_adjust(bottom=0.1)
+        cmax=-1e12
+        cmin=1e12
+        for i in range(len(yaw_lst)):
             dic=results['TSR'+str(8)+'_yaw'+str(yaw_lst[i])]
-            fig, ax = plt.subplots(subplot_kw=dict(projection='polar'))
             Z = getattr(dic, str(var[j]))
             if var[j]=='f_tan' or var[j]=='f_nor':
                 Z=getattr(dic, str(var[j]))/(0.5*param.rho*param.wind_speed**2*param.radius)
@@ -71,31 +77,54 @@ def plot_yaw(results,param,yaw_lst):
                 Z=getattr(dic, str(var[j]))/((np.pi*param.wind_speed**2/(param.n_blades*param.omega)))
             else:
                 Z=getattr(dic, str(var[j]))
+
+            if cmax<Z.max():
+                cmax=Z.max()
+            if cmin>Z.min():
+                cmin=Z.min()
+            if cmin<0:
+                cmin=0
+
+        for i in range(len(yaw_lst)):
+            dic=results['TSR'+str(8)+'_yaw'+str(yaw_lst[i])]
+            axs[i].set_theta_zero_location('N')
+            axs[i].set_title('Yaw angle: '+str(yaw_lst[i])+'$^\circ$')
+            Z = getattr(dic, str(var[j]))
+            if var[j]=='f_tan' or var[j]=='f_nor':
+                Z=getattr(dic, str(var[j]))/(0.5*param.rho*param.wind_speed**2*param.radius)
+            elif var[i]=='circulation':
+                Z=getattr(dic, str(var[j]))/((np.pi*param.wind_speed**2/(param.n_blades*param.omega)))
+            else:
+                Z=getattr(dic, str(var[j]))
+
             if yaw_lst[i]==0:
                 dic2=results['TSR'+str(8)+'_yaw'+str(yaw_lst[1])]
                 r = np.hstack((dic2.mu,dic2.mu[:,0].reshape(len(dic2.mu[:,0]),1)))
                 psi=dic2.azimuth
                 psi=np.append(psi,2*np.pi+psi[0])
                 psi=np.tile(psi.transpose(),(len(r[:,0]), 1))
-                pp=ax.contourf(psi,r , np.tile(Z,len(psi[0])),20)
-                ax.set_rlabel_position(225)
+                axs[i].contourf(psi,r , np.tile(Z,len(psi[0])),20,vmin=cmin, vmax=cmax)
             else:
-                ax.set_theta_zero_location('N') ## CHECK!!!!!!!
+
                 r = np.hstack((dic.mu,dic.mu[:,0].reshape(len(dic.mu[:,0]),1)))
                 psi=dic.azimuth
                 psi=np.append(psi,2*np.pi+psi[0])
                 psi=np.tile(psi.transpose(),(len(r[:,0]), 1))
                 Z = np.hstack((Z,Z[:,0].reshape(len(Z[:,0]),1)))
-                pp=ax.contourf(psi,r,Z,20)
-                ax.set_rlabel_position(135)
-            rlabels = ax.get_ymajorticklabels()
+                axs[i].contourf(psi,r,Z,20,vmin=cmin, vmax=cmax)
+
+            axs[i].set_rlabel_position(135)
+            axs[i].tick_params(axis='x', which='major', labelsize=12)
+            rlabels = axs[i].get_ymajorticklabels()
             for label in rlabels:
                 label.set_color('white')
-            cbar = plt.colorbar(pp, pad=0.1)
-            cbar.ax.set_ylabel(labels[j], rotation=270, labelpad=15)
-            plt.set_cmap('viridis')
-            if save==True:
-                plt.savefig('figures/Yaw'+str(yaw_lst[i])+'_'+str(var[j])+'.pdf')
+
+        m = plt.cm.ScalarMappable(cmap=cm.viridis)
+        cbar=plt.colorbar(m, ax=[axs[0:3]],orientation='horizontal', boundaries=np.linspace(cmin, cmax, 50))
+        cbar.ax.set_xlabel(labels[j], fontsize=16)
+        cbar.ax.tick_params(labelsize=14)
+        if save==True:
+            plt.savefig('figures/polar_'+str(var[j])+'.pdf')
 
 def plot_polars(dic):
     plt.figure()
@@ -185,7 +214,7 @@ def plot_enthalpy_tube(results, param, TSR, Yaw):
     ax.plot_surface(x4,z4,y4, facecolors=fcolors, cmap='viridis',vmin=0, vmax=50)
 
     cb = fig.colorbar(scamap)
-    cb.set_label(r'$h_0$ [-]', rotation=0,fontsize=18,labelpad=15)
+    cb.set_label(r'$h_0$ [-]', rotation=0,fontsize=18,labelpad=25)
     cb.ax.tick_params(labelsize=12)
     fake2Dline = mpl.lines.Line2D([0],[0], linestyle="none", c='r', marker = 'o')
     ax.legend([fake2Dline], [r'$h_0$ = 1'], numpoints = 1, fontsize=18)
@@ -228,6 +257,48 @@ def plot_enthalpy_tube(results, param, TSR, Yaw):
 
 
 # = = = = = = = = = =   OLD  = = = = = = = = = = = = = #
+
+
+# def plot_yaw(results,param,yaw_lst):
+#     var=['alpha','phi','a','ap','f_tan','f_nor','circulation','local_CQ']
+#     labels=[r'$\alpha$ [deg]','$\phi$ [deg]', 'a [-]','$a^,[-]$', '$C_t$ [-]', '$C_n$ [-]','$\Gamma$ [-]','$C_q [-]$']
+#     for i in range(len(yaw_lst)):
+#         for j in range(len(var)):
+#             dic=results['TSR'+str(8)+'_yaw'+str(yaw_lst[i])]
+#             fig, ax = plt.subplots(subplot_kw=dict(projection='polar'))
+#             Z = getattr(dic, str(var[j]))
+#             if var[j]=='f_tan' or var[j]=='f_nor':
+#                 Z=getattr(dic, str(var[j]))/(0.5*param.rho*param.wind_speed**2*param.radius)
+#             elif var[i]=='circulation':
+#                 Z=getattr(dic, str(var[j]))/((np.pi*param.wind_speed**2/(param.n_blades*param.omega)))
+#             else:
+#                 Z=getattr(dic, str(var[j]))
+#             if yaw_lst[i]==0:
+#                 dic2=results['TSR'+str(8)+'_yaw'+str(yaw_lst[1])]
+#                 r = np.hstack((dic2.mu,dic2.mu[:,0].reshape(len(dic2.mu[:,0]),1)))
+#                 psi=dic2.azimuth
+#                 psi=np.append(psi,2*np.pi+psi[0])
+#                 psi=np.tile(psi.transpose(),(len(r[:,0]), 1))
+#                 pp=ax.contourf(psi,r , np.tile(Z,len(psi[0])),20)
+#                 ax.set_rlabel_position(225)
+#             else:
+#                 ax.set_theta_zero_location('N') ## CHECK!!!!!!!
+#                 r = np.hstack((dic.mu,dic.mu[:,0].reshape(len(dic.mu[:,0]),1)))
+#                 psi=dic.azimuth
+#                 psi=np.append(psi,2*np.pi+psi[0])
+#                 psi=np.tile(psi.transpose(),(len(r[:,0]), 1))
+#                 Z = np.hstack((Z,Z[:,0].reshape(len(Z[:,0]),1)))
+#                 pp=ax.contourf(psi,r,Z,20)
+#                 ax.set_rlabel_position(135)
+#             rlabels = ax.get_ymajorticklabels()
+#             for label in rlabels:
+#                 label.set_color('white')
+#             cbar = plt.colorbar(pp, pad=0.1)
+#             cbar.ax.set_ylabel(labels[j], rotation=270, labelpad=15)
+#             plt.set_cmap('viridis')
+#             if save==True:
+#                 plt.savefig('figures/Yaw'+str(yaw_lst[i])+'_'+str(var[j])+'.pdf')
+
 
 # NOT NEEDED now
 # Spacing plot, uncomment if you have the put the spacing_data file in the same folder
