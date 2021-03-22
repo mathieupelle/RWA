@@ -5,10 +5,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.optimize import least_squares,fsolve
 import math as m
+import time
+
 
 
 class Rotor:
-  def __init__(self, Optimized_geometry = None):
+  def __init__(self, N_radial_sections = 80, Spacing_method = 'lin' ,Optimized_geometry = None):
     """
       Class that defines the geometry of a rotor.
 
@@ -16,6 +18,8 @@ class Rotor:
       ----------
       Optimized_geometry : Optimal geometry determined using the class Optimizer.
           If input provided (none by default), the rotor will be created with that geometry
+      N_radial_sections : Number of radial elements to be used
+      Spacing method : 'Lin' -> linear spacing. 'cos' -> cosinusoidal spacing
 
    """
       
@@ -23,12 +27,18 @@ class Rotor:
     self.radius = 50 #[m]
     self.n_blades = 3
     self.theta = -2 #Pitch angle [deg]
-    self.N_radial = 40 #Number of sections
+    self.N_radial = N_radial_sections #Number of sections
+    
+    #Create non-dimensional radius array depending on spacing method
     self.mu = np.linspace(0.2,1,self.N_radial)
+    if Spacing_method == 'cos':
+        angle=np.linspace(0,np.pi,self.N_radial)
+        for i in range(len(self.mu)):
+            self.mu[i]=0.4*(1-m.cos(angle[i]))+0.2
     self.beta = 14*(1-self.mu) #Twist angle in degrees
     self.chord = 3*(1-self.mu)+1 #Chord length in meters
     
-    self.N_azimuth = 10 #Number of angular sections
+    self.N_azimuth = 40 #Number of angular sections
     self.azimuth = np.linspace(0,2*np.pi,self.N_azimuth)
     
     #Polar data
@@ -58,12 +68,15 @@ class Results: #Create the variables to store the results from BEMT
         
     def Integrate(self,Rotor):
         #Calculate global CT
-        d_r = (Rotor.mu[2]-Rotor.mu[1])*Rotor.radius
+        #Generate differential radius array (to take into account cosinusoidal spacing)
+        d_r = np.zeros(len(Rotor.mu)-1)
+        for i in range(len(Rotor.mu)-1):
+            d_r[i] = (Rotor.mu[i+1]-Rotor.mu[i])*Rotor.radius
         d_azi = 2*np.pi/np.size(self.a,1)
-        self.CT = np.sum(self.f_nor*Rotor.n_blades*d_azi/2/np.pi*d_r)/(0.5*Rotor.rho*Rotor.wind_speed**2*np.pi*Rotor.radius**2)
+        self.CT = np.sum(self.f_nor.transpose()*Rotor.n_blades*d_azi/2/np.pi*d_r)/(0.5*Rotor.rho*Rotor.wind_speed**2*np.pi*Rotor.radius**2)
         
         #Global CP
-        dTorque = self.f_tan*d_r*self.mu*Rotor.radius*d_azi/2/np.pi
+        dTorque = self.f_tan.transpose()*d_r*self.mu[:,0]*Rotor.radius*d_azi/2/np.pi
         self.CP = np.sum(dTorque*Rotor.n_blades*Rotor.omega)/(0.5*Rotor.rho*Rotor.wind_speed**3*np.pi*Rotor.radius**2)
         
         #Global CQ
@@ -167,13 +180,13 @@ class BEMT:
         #Combined correction
         f = f_tip*f_root
         
-        if f < 1e-6:
-            f = 1e-6
+        if f < 1e-4 or m.isnan(f):
+            f = 1e-4
         
-        return f #,f_tip,f_root
+        return f,f_tip,f_root
     
     
-    def Solver(self,N_iter_max = 1000,delta=1e-6):
+    def Solver(self,Prandtl_correction = True,N_iter_max = 1000,delta=1e-6):
         
         if self.Rotor.yaw == 0:
             N_azimuth = 2
@@ -195,9 +208,9 @@ class BEMT:
                 
             for j in range(N_azimuth-1):
                     azimuth = (self.Rotor.azimuth[j]+self.Rotor.azimuth[j+1])/2
-                   # self.Results.azimuth[j] = azimuth
+                    self.Results.azimuth[j] = azimuth
                     
-                    a,ap = (0.2,0.2) #Initialize induction factors
+                    a,ap = (0.2,0.02) #Initialize induction factors
                     for ite in range(N_iter_max):
                         #Velocities and angles
                         [u_tan,u_nor,u_rel,phi] = self.RelativeVelocities(a,ap,mu,azimuth)
@@ -213,22 +226,34 @@ class BEMT:
                         #Get new value of axial induction factor
                         a_new = self.NewInductionFactor(CT,self.Rotor.yaw,a)
                         
-                        #Apply the tip loss correction factor
-                        #[f,f_tip,f_root] = self.PrandtlTipCorrection(mu,a_new)
-                        f = self.PrandtlTipCorrection(mu,a_new)
-                        [f_tip,f_root] = (0,0)
-                        a_new = a_new/f
+                        #Apply the tip and root loss correction factor if wanted
+                        if Prandtl_correction:
+                            [f,f_tip,f_root] = self.PrandtlTipCorrection(mu,a_new)
+                        else:
+                            [f,f_tip,f_root] = [1,1,1]
+                        a_new = a_new/f                                            
                         
                         #Induction factor for the next iteration
                         a = 0.75*a + 0.25*a_new
                         
+                        #Bound a to 0.95
+                        if a>0.95 or m.isnan(a_new):
+                            a=0.95    
+                
                         #Calculate tangential induction
                         ap_new = f_tan*self.Rotor.n_blades/(2*self.Rotor.rho*2*np.pi*mu*self.Rotor.radius*self.Rotor.wind_speed**2*(1-a)*self.Rotor.TSR*mu*f)
+                        
+                        #Tangential induction for next iteration
                         ap = 0.75*ap + 0.25*ap_new
                         
                         #Check convergency
                         if np.abs(a_new-a) < delta and np.abs(ap_new-ap) < delta:
                             break
+                        
+                    #Correct values that might be nan due to tip and root effects
+                    if m.isnan(f_tan):
+                        f_tan = 0
+                        f_nor = 0
                         
                     #Calculate circulation 
                     self.Results.circulation[i,j] = lift/(self.Rotor.rho*u_rel)
@@ -237,7 +262,7 @@ class BEMT:
                     self.Results.enthalpy_3[i,j] = 1/2*self.Rotor.wind_speed**2*(1-2*a)**2
                     
                     #Calculate local torque coefficient
-                    self.Results.local_CQ[i,j] = f_tan*mu*self.Rotor.radius*self.Rotor.n_blades/(0.5*self.Rotor.rho*self.Rotor.wind_speed**2*np.pi*self.Rotor.radius**3)
+                    self.Results.local_CQ[i,j] = f_tan*mu*self.Rotor.radius*self.Rotor.n_blades/(0.5*self.Rotor.rho*self.Rotor.wind_speed**2*self.Rotor.radius**2)
                         
                     #Store all the results
                     [self.Results.a[i,j],self.Results.ap[i,j],self.Results.phi[i,j],self.Results.alpha[i,j],self.Results.cl[i,j],
@@ -341,22 +366,16 @@ class Optimizer:
         c,ap = x #Unpack the input
         
         #Flow angle
-        phi = m.atan((1-self.a)*self.R/((1+ap)*self.r*self.TSR))
-        
+        phi = m.atan((1-self.a)*self.R/((1+ap)*self.r*self.TSR))        
+         
         #Tip loss
-        f = self.B * (self.R-self.r)/(2*self.r*np.sin(phi))
-        F = 2*m.acos(np.exp(-f))/np.pi
-        
-        
-        # #Root loss
         exp = np.exp(-self.B/2 * ((1-self.r/self.R)/(self.r/self.R)) * np.sqrt(1+self.TSR**2*(self.r/self.R)**2/(1-self.a)**2))
         f_tip = 2/np.pi * np.arccos(exp)
-        # #Root correction
+        #Root correction
         exp = np.exp(-self.B/2 * ((self.r/self.R-0.2)/(self.r/self.R)) * np.sqrt(1+self.TSR**2*(self.r/self.R)**2/(1-self.a)**2))
         f_root = 2/np.pi * np.arccos(exp)
         ##Combined correction
-        F = f_tip*f_root
-        
+        F = f_tip*f_root       
         
         #Force coefficients
         Cy = self.cl * np.cos(phi) + self.cd*np.sin(phi)
@@ -401,12 +420,36 @@ class Optimizer:
         self.theta = self.beta[-1]
         self.beta = self.beta - self.theta
             
+
+def MeshSensitivity(N_array,Spacing):
+    [CT,execution_time] = np.zeros((2,len(N_array))) #Initialize an array to store thurst and execution time
+    
+    #Loop to each number of points
+    for idx in range(len(N_array)):
+        print('Solving rotor with',N_array[idx],'radial points. Case',idx+1,'out of',len(N_array)) #Status message
+        #Create the rotor with the corresponding nº of elements and spacing method
+        Rotor_spacing = Rotor(N_radial_sections = N_array[idx], Spacing_method = Spacing)
+        #Start the BEMT class with them
+        BEMT_spacing = BEMT(Rotor_spacing) 
+        #Solve the linear-spaced
+        tic = time.perf_counter() #Initialize a timer for the execution time analysis
+        BEMT_spacing.Solver() #Solve the rotor
+        execution_time[idx] = time.perf_counter() - tic #Stop the count!
+        #Solve the cosinusioidal-spaced
+        CT[idx] = BEMT_spacing.Results.CT #Save thrust coefficient
+    
+    #Calculate relative error for each position
+    err = abs(CT-CT[-1])/CT[-1]
+    
+    #Get the number of mesh points that gives us 0.001 relative error (0.1%)
+    N_chosen = np.interp(x = 1e-3,xp = np.flip(err),fp = np.flip(N_array))
+    
+    return CT,err,N_chosen,execution_time
             
             
             
             
-            
-def Plotting(Rotor_org,Rotor_opt,Results_org,Results_opt,Cp_lambda_org,Cp_lambda_opt):
+def plot_optimized_geometry(Rotor_org,Rotor_opt,Results_org,Results_opt,Cp_lambda_org,Cp_lambda_opt):
     
     #Set default stuff    
     x = 6  # Want figures to be A6
@@ -519,4 +562,32 @@ def Plotting(Rotor_org,Rotor_opt,Results_org,Results_opt,Cp_lambda_org,Cp_lambda
             plt.savefig('figures/TSR_'+str(var[i])+'.pdf')
     
     
+def plot_mesh_sensitivity(N_array,CT_lin,CT_cos,N_chosen_lin,N_chosen_cos,execution_time_lin,execution_time_cos,err_lin,err_cos):  
+    
+    fig,ax = plt.subplots()
+    ax.plot(N_array,CT_lin,label='CT (lin)')
+    ax.plot(N_array,CT_cos,'--',color='tab:blue',label='CT (cos)')
+    ax.set_ylabel('Thrust coefficient $CT$ [-]')
+    ax.grid()
+    ax2=ax.twinx()
+    ax2.plot(N_array,execution_time_lin,color='tab:orange',label='time (lin)')
+    ax2.plot(N_array,execution_time_cos,'--',color='tab:orange',label='time (cos)')
+    ax2.plot([N_chosen_lin,N_chosen_lin],[execution_time_lin.min(),execution_time_cos.max()],'-',color='black',label='N (lin)')
+    ax2.plot([N_chosen_cos,N_chosen_cos],[execution_time_lin.min(),execution_time_cos.max()],'--',color='black',label='N (cos)')
+    ax2.set_ylabel('BEMT execution time [s]')
+    ax.set_xlabel('Number of radial elements $N$')
+    ax.legend(bbox_to_anchor=(1.1,0.7), loc="upper left")
+    ax2.legend(bbox_to_anchor=(1.1,0.5), loc="upper left")
+    
+    
+    fig = plt.figure()
+    plt.loglog(N_array[:-1],err_lin[:-1],'-',label='linear spacing')
+    plt.loglog(N_array[:-1],err_cos[:-1],'-',label='cosinusoidal spacing')
+    plt.grid(which='minor')
+    plt.grid()
+    plt.plot([N_array.min(),N_array.max()],[1e-3,1e-3],'--',color='black')
+    plt.xlabel('Number of radial elements $N$')
+    plt.ylabel('Relative error')
+    plt.legend()
+           
     
