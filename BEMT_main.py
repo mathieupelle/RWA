@@ -105,7 +105,7 @@ N_array = np.geomspace(10,400,10,dtype=int) #Number of radial points that we wil
 
 #%% Effect of the Prandt'l tip and root correction
 
-Rotor_org.SetOperationalData(wind_speed = 10,TSR = 8,yaw_angle = 0) #Set the default operational conditions
+Rotor_org.SetOperationalData(wind_speed = 10,TSR = 8,yaw = 0) #Set the default operational conditions
 BEMT_NoPrandtl = BEMT(Rotor_org) #Initialize BEMT instance
 BEMT_NoPrandtl.Solver(Prandtl_correction = False) #Solve the rotor
 Res_NoPrandtl = BEMT_NoPrandtl.Results #Store the no-prandtl correction results
@@ -127,6 +127,6 @@ plot_mesh_sensitivity(N_array,CT_lin,CT_cos,N_chosen_lin,N_chosen_cos,execution_
 plot_TSR(Res_org,Rotor_org,[6,8,10])
 plot_yaw(Res_org,Rotor_org,[0,15,30])
 plot_polars(Rotor_org)
-plot_correction(Res_org, 8, 0)
+plot_correction(Res_org, Rotor_org, 8, 0,Res_Prandtl,Res_NoPrandtl)
 plot_enthalpy_tube(Res_org,Rotor_org,8,0)
 

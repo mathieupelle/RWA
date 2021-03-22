@@ -61,7 +61,6 @@ def plot_TSR(results,param,TSR_lst):
 def plot_yaw(results,param,yaw_lst):
     var=['alpha','phi','a','ap','f_tan','f_nor','circulation','local_CQ']
     labels=[r'$\alpha$ [deg]','$\phi$ [deg]', 'a [-]','$a^,[-]$', '$C_t$ [-]', '$C_n$ [-]','$\Gamma$ [-]','$C_q [-]$']
-<<<<<<< Updated upstream
 
     for j in range(len(var)):
         fig, axs = plt.subplots(1, 3, figsize=(12,5),subplot_kw=dict(projection='polar'))
@@ -90,12 +89,9 @@ def plot_yaw(results,param,yaw_lst):
             if var[j]=='ap':
                 cmax=0.05
 
-        for i in range(len(yaw_lst)):
-=======
-    #labels=[r'alpha [deg]','phi [deg]', 'a [-]','a^,[-]', 'C_t [-]', 'C_n [-]','Gamma [-]','C_q [-]']
     for i in range(len(yaw_lst)):
+    #labels=[r'alpha [deg]','phi [deg]', 'a [-]','a^,[-]', 'C_t [-]', 'C_n [-]','Gamma [-]','C_q [-]']
         for j in range(len(var)):
->>>>>>> Stashed changes
             dic=results['TSR'+str(8)+'_yaw'+str(yaw_lst[i])]
             axs[i].set_theta_zero_location('N')
             axs[i].set_title('Yaw angle: '+str(yaw_lst[i])+'$^\circ$')
@@ -154,6 +150,7 @@ def plot_polars(dic):
     if save==True:
         plt.savefig('figures/Cd.pdf')
 
+
 def plot_correction(results, param, TSR, Yaw,Res_prandtl,Res_no_prandtl):
     dic=results['TSR'+str(TSR)+'_yaw'+str(Yaw)]
     plt.figure()
@@ -174,19 +171,25 @@ def plot_correction(results, param, TSR, Yaw,Res_prandtl,Res_no_prandtl):
         plt.grid()
         plt.xlabel(r'Radius $\frac{r}{R}$ [-]')
         plt.ylabel(labels[i])
-        for j in range(len(TSR_lst)):
-            dic=results['TSR'+str(TSR_lst[j])+'_yaw'+str(0)]
-            if var[i]=='f_tan' or var[i]=='f_nor':
-                Z=getattr(dic, str(var[i]))/(0.5*param.rho*param.wind_speed**2*param.radius)
-            elif var[i]=='circulation':
-                Z=getattr(dic, str(var[i]))/((np.pi*param.wind_speed**2/(param.n_blades*param.omega)))
-            else:
-                Z=getattr(dic, str(var[i]))
-            plt.plot(dic.mu,Z,label='$\lambda$=' +str(TSR_lst[j]))
+        if var[i]=='f_tan' or var[i]=='f_nor':
+            Z = getattr(Res_prandtl, str(var[i]))/(0.5*param.rho*param.wind_speed**2*param.radius)
+            Z_np = getattr(Res_no_prandtl, str(var[i]))/(0.5*param.rho*param.wind_speed**2*param.radius)
+
+        elif var[i]=='circulation':
+            Z=getattr(Res_prandtl, str(var[i]))/((np.pi*param.wind_speed**2/(param.n_blades*param.omega)))
+            Z_np=getattr(Res_no_prandtl, str(var[i]))/((np.pi*param.wind_speed**2/(param.n_blades*param.omega)))
+
+        else:
+            Z=getattr(Res_prandtl, str(var[i]))
+            Z_np=getattr(Res_no_prandtl, str(var[i]))
+
+        plt.plot(dic.mu,Z,label='Tip and loss correction applied')
+        plt.plot(dic.mu,Z_np,label='No tip and loss correction')
+
 
         plt.legend()
         if save==True:
-            plt.savefig('figures/prandtl_correction/TSR_'+str(var[j])+'.pdf')
+            plt.savefig('figures/prandtl_correction/'+str(var[i])+'.pdf')
  
         
     
