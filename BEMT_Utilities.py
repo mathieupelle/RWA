@@ -10,7 +10,7 @@ import time
 
 
 class Rotor:
-  def __init__(self, N_radial_sections = 80, Spacing_method = 'lin' ,Optimized_geometry = None):
+  def __init__(self, N_radial_sections = 30, Spacing_method = 'cos' ,Optimized_geometry = None):
     """
       Class that defines the geometry of a rotor.
 
@@ -339,15 +339,9 @@ class Optimizer:
         self.mu = Rotor_original.mu
         
         #Calculate optimal Cl and E
-        Alpha_pol = Rotor_original.polars['alpha']
-        Cl_pol = Rotor_original.polars['Cl']
-        Cd_pol = Rotor_original.polars['Cd']
-        
-        
-        Alpha = np.linspace(0,15) #Create a more dense array of alpha to get more resolution
-        #Interpolate the corresponding values of Cl and Cd
-        Cl = np.interp(Alpha,Alpha_pol,Cl_pol)
-        Cd = np.interp(Alpha,Alpha_pol,Cd_pol)               
+        Alpha = Rotor_original.polars['alpha']
+        Cl = Rotor_original.polars['Cl']
+        Cd = Rotor_original.polars['Cd']     
         
         #Select the point with the maximum efficiency
         self.E = max(Cl/Cd)
@@ -442,12 +436,12 @@ def MeshSensitivity(N_array,Spacing):
     err = abs(CT-CT[-1])/CT[-1]
     
     #Get the number of mesh points that gives us 0.001 relative error (0.1%)
-    N_chosen = np.interp(x = 1e-3,xp = np.flip(err),fp = np.flip(N_array))
+    N_chosen = np.interp(x = 0.5e-3,xp = np.flip(err),fp = np.flip(N_array))
     
     return CT,err,N_chosen,execution_time
             
             
-            
+save = False #Flag for saving plots            
             
 def plot_optimized_geometry(Rotor_org,Rotor_opt,Results_org,Results_opt,Cp_lambda_org,Cp_lambda_opt):
     
@@ -466,6 +460,9 @@ def plot_optimized_geometry(Rotor_org,Rotor_opt,Results_org,Results_opt,Cp_lambd
     plt.ylabel('Chord [m]')
     plt.grid()
     
+    if save==True:
+        plt.savefig('figures/Optimization/Chord.pdf')    
+        
     fig = plt.figure('Twist distribution')
     plt.plot(Rotor_org.mu,Rotor_org.beta)
     plt.plot(Rotor_opt.mu,Rotor_opt.beta)
@@ -473,7 +470,9 @@ def plot_optimized_geometry(Rotor_org,Rotor_opt,Results_org,Results_opt,Cp_lambd
     plt.xlabel('Radius r/R [-]')
     plt.ylabel('Twist [deg]')
     plt.grid()
-    
+
+    if save==True:
+        plt.savefig('figures/Optimization/Twist.pdf') 
     
     #Plot CP-lambda-theta contours
     fig = plt.figure('CP-lambda-theta')
@@ -482,6 +481,8 @@ def plot_optimized_geometry(Rotor_org,Rotor_opt,Results_org,Results_opt,Cp_lambd
     plt.xlabel('Tip speed ratio [-]')
     plt.ylabel('Pitch angle [deg]')
     plt.title('Power coefficient CP [-] (Original design)')
+    if save==True:
+        plt.savefig('figures/Optimization/Cp_Lambda_Theta_org.pdf') 
     
     fig = plt.figure('CP-lambda-theta optimized')
     CS = plt.contour(Cp_lambda_opt['TSR'],Cp_lambda_opt['theta'],Cp_lambda_opt['CP'].transpose(),cmap='jet',levels=10)
@@ -490,7 +491,9 @@ def plot_optimized_geometry(Rotor_org,Rotor_opt,Results_org,Results_opt,Cp_lambd
     plt.ylabel('Pitch angle [deg]')
     plt.title('Power coefficient CP [-] (Optimized design)')
     plt.plot(8,Rotor_opt.theta,'x',color='black')
-
+    if save==True:
+        plt.savefig('figures/Optimization/Cp_Lambda_Theta_opt.pdf') 
+        
     #Plot CT-lambda-theta contours
     fig = plt.figure('CT-lambda-theta')
     CS = plt.contour(Cp_lambda_org['TSR'],Cp_lambda_org['theta'],Cp_lambda_org['CT'].transpose(),cmap='jet',levels=10)
@@ -498,7 +501,9 @@ def plot_optimized_geometry(Rotor_org,Rotor_opt,Results_org,Results_opt,Cp_lambd
     plt.xlabel('Tip speed ratio [-]')
     plt.ylabel('Pitch angle [deg]')
     plt.title('Thrust coefficient CT [-] (Original design)')
-    
+    if save==True:
+        plt.savefig('figures/Optimization/Ct_Lambda_Theta_org.pdf')  
+        
     fig = plt.figure('CT-lambda-theta optimized')
     CS = plt.contour(Cp_lambda_opt['TSR'],Cp_lambda_opt['theta'],Cp_lambda_opt['CT'].transpose(),cmap='jet',levels=10)
     plt.clabel(CS, inline=1, fontsize=10)
@@ -506,7 +511,8 @@ def plot_optimized_geometry(Rotor_org,Rotor_opt,Results_org,Results_opt,Cp_lambd
     plt.ylabel('Pitch angle [deg]')
     plt.title('Thrust coefficient CT [-] (Optimized design)')
     plt.plot(8,Rotor_opt.theta,'x',color='black')
-    
+    if save==True:
+        plt.savefig('figures/Optimization/Ct_Lambda_Theta_opt.pdf')    
     
     #CQ-lambda-theta
     fig= plt.figure('CQ-lambda-theta')
@@ -515,6 +521,8 @@ def plot_optimized_geometry(Rotor_org,Rotor_opt,Results_org,Results_opt,Cp_lambd
     plt.xlabel('Tip speed ratio [-]')
     plt.ylabel('Pitch angle [deg]')
     plt.title('Torque coefficient CQ [-] (Original design)')
+    if save==True:
+        plt.savefig('figures/Optimization/Cq_Lambda_Theta_org.pdf') 
     
     fig = plt.figure('CQ-lambda-theta optimized')
     CS = plt.contour(Cp_lambda_opt['TSR'],Cp_lambda_opt['theta'],Cp_lambda_opt['CQ'].transpose(),cmap='jet',levels=10)
@@ -523,7 +531,8 @@ def plot_optimized_geometry(Rotor_org,Rotor_opt,Results_org,Results_opt,Cp_lambd
     plt.ylabel('Pitch angle [deg]')
     plt.title('Torque coefficient CQ [-] (Optimized design)')
     plt.plot(8,Rotor_opt.theta,'x',color='black')
-    
+    if save==True:
+        plt.savefig('figures/Optimization/Cq_Lambda_Theta_opt.pdf')     
     
     #Compare original vs optimal design
     rho = Rotor_org.rho
@@ -554,12 +563,9 @@ def plot_optimized_geometry(Rotor_org,Rotor_opt,Results_org,Results_opt,Cp_lambd
 
         plt.plot(dic.mu,Z,label='Original design')
         plt.plot(dic_opt.mu,Z_opt,label='Optimized design')
-
-        
-
         plt.legend()
-        if False:
-            plt.savefig('figures/TSR_'+str(var[i])+'.pdf')
+        if save:
+            plt.savefig('figures/Optimization/'+str(var[i])+'.pdf')
     
     
 def plot_mesh_sensitivity(N_array,CT_lin,CT_cos,N_chosen_lin,N_chosen_cos,execution_time_lin,execution_time_cos,err_lin,err_cos):  
@@ -578,6 +584,8 @@ def plot_mesh_sensitivity(N_array,CT_lin,CT_cos,N_chosen_lin,N_chosen_cos,execut
     ax.set_xlabel('Number of radial elements $N$')
     ax.legend(bbox_to_anchor=(1.1,0.7), loc="upper left")
     ax2.legend(bbox_to_anchor=(1.1,0.5), loc="upper left")
+    if save:
+        plt.savefig('figures/MeshSensitivity/CT_time.pdf')
     
     
     fig = plt.figure()
@@ -589,5 +597,6 @@ def plot_mesh_sensitivity(N_array,CT_lin,CT_cos,N_chosen_lin,N_chosen_cos,execut
     plt.xlabel('Number of radial elements $N$')
     plt.ylabel('Relative error')
     plt.legend()
-           
+    if save:
+        plt.savefig('figures/MeshSensitivity/Convergence.pdf')           
     

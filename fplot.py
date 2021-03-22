@@ -34,7 +34,7 @@ plt.rc('figure', figsize=[46.82 * .5**(.5 * x), 33.11 * .5**(.5 * x)]   )
 plt.rc('font', family='serif')
 
 
-save=False # Save or not
+save=True # Save or not
 
 def plot_TSR(results,param,TSR_lst):
     var=['alpha','phi','a','ap','f_tan','f_nor','circulation','local_CQ']

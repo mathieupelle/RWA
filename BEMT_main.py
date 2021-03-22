@@ -116,10 +116,10 @@ Res_Prandtl = Res_org['TSR8_yaw0'] #Store the corrected results
 
 x = 6  # Want figures to be A6
 plt.rc('figure', figsize=[46.82 * .5**(.5 * x), 33.11 * .5**(.5 * x)]   )
-plt.rc('text', usetex=False)
+#plt.rc('text', usetex=False)
 plt.rc('font', family='serif')
 global save
-save=False
+save=True
 
 
 plot_optimized_geometry(Rotor_org,Rotor_opt,Res_org,Res_opt,CpLambda_org,CpLambda_opt)
