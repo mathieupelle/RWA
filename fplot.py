@@ -37,8 +37,8 @@ plt.rc('font', family='serif')
 save=True # Save or not
 
 def plot_TSR(results,param,TSR_lst):
-    var=['alpha','phi','a','ap','f_tan','f_nor','circulation','local_CQ']
-    labels=[r'$\alpha$ [deg]','$\phi$ [deg]', 'a [-]','$a^,[-]$', '$C_t$ [-]', '$C_n$ [-]','$\Gamma$ [-]','$C_q [-]$']
+    var=['alpha','phi','a','ap','f_tan','f_nor','circulation','local_CQ','local_CT']
+    labels=[r'$\alpha$ [deg]','$\phi$ [deg]', 'a [-]','$a^,[-]$', '$C_t$ [-]', '$C_n$ [-]','$\Gamma$ [-]','$C_q [-]$', '$C_T [-]$']
     for i in range(len(var)):
         plt.figure()
         plt.grid()
@@ -56,16 +56,15 @@ def plot_TSR(results,param,TSR_lst):
 
         plt.legend()
         if save==True:
-            plt.savefig('figures/TSR_'+str(var[j])+'.pdf')
+            plt.savefig('figures/TSR_'+str(var[i])+'.pdf')
 
 def plot_yaw(results,param,yaw_lst):
-    var=['alpha','phi','a','ap','f_tan','f_nor','circulation','local_CQ']
-    labels=[r'$\alpha$ [deg]','$\phi$ [deg]', 'a [-]','$a^,[-]$', '$C_t$ [-]', '$C_n$ [-]','$\Gamma$ [-]','$C_q [-]$']
+    var=['alpha','phi','a','ap','f_tan','f_nor','circulation','local_CQ', 'local_CT']
+    labels=[r'$\alpha$ [deg]','$\phi$ [deg]', 'a [-]','$a^,[-]$', '$C_t$ [-]', '$C_n$ [-]','$\Gamma$ [-]','$C_q [-]$','$C_T [-]$']
 
     for j in range(len(var)):
-        fig, axs = plt.subplots(1, 3, figsize=(12,5),subplot_kw=dict(projection='polar'))
+        fig, axs = plt.subplots(1, len(yaw_lst), figsize=(12,5),subplot_kw=dict(projection='polar'))
         fig.tight_layout()
-        fig.subplots_adjust(bottom=0.1)
         cmax=-1e12
         cmin=1e12
         for i in range(len(yaw_lst)):
@@ -89,11 +88,9 @@ def plot_yaw(results,param,yaw_lst):
             if var[j]=='ap':
                 cmax=0.05
 
-    for i in range(len(yaw_lst)):
-    #labels=[r'alpha [deg]','phi [deg]', 'a [-]','a^,[-]', 'C_t [-]', 'C_n [-]','Gamma [-]','C_q [-]']
-        for j in range(len(var)):
+        for i in range(len(yaw_lst)):
             dic=results['TSR'+str(8)+'_yaw'+str(yaw_lst[i])]
-            axs[i].set_theta_zero_location('N')
+            axs[i].set_theta_zero_location('E')
             axs[i].set_title('Yaw angle: '+str(yaw_lst[i])+'$^\circ$')
             Z = getattr(dic, str(var[j]))
             if var[j]=='f_tan' or var[j]=='f_nor':
@@ -119,18 +116,19 @@ def plot_yaw(results,param,yaw_lst):
                 Z = np.hstack((Z,Z[:,0].reshape(len(Z[:,0]),1)))
                 axs[i].contourf(psi,r,Z,20,vmin=cmin, vmax=cmax)
 
-            axs[i].set_rlabel_position(135)
+            axs[i].set_rlabel_position(225)
             axs[i].tick_params(axis='x', which='major', labelsize=12)
             rlabels = axs[i].get_ymajorticklabels()
             for label in rlabels:
                 label.set_color('white')
 
         m = plt.cm.ScalarMappable(cmap=cm.viridis)
-        cbar=plt.colorbar(m, ax=[axs[0:3]],orientation='horizontal', boundaries=np.linspace(cmin, cmax, 50))
+        cbar=plt.colorbar(m, ax=[axs[0:len(yaw_lst)]],orientation='horizontal', boundaries=np.linspace(cmin, cmax, 50))
         cbar.ax.set_xlabel(labels[j], fontsize=16)
         cbar.ax.tick_params(labelsize=14)
         if save==True:
-            plt.savefig('figures/polar_'+str(var[j])+'.pdf')
+            plt.savefig('figures/polar_'+str(var[j])+'.pdf',bbox_inches = "tight")
+
 
 def plot_polars(dic):
     plt.figure()
@@ -149,6 +147,14 @@ def plot_polars(dic):
     plt.plot(dic.polars.Cd,dic.polars.Cl)
     if save==True:
         plt.savefig('figures/Cd.pdf')
+        plt.figure()
+    plt.grid()
+    plt.xlabel(r'$\alpha [deg]$')
+    plt.ylabel('$C_d [-]$')
+    plt.xlim([-20,30])
+    plt.plot(dic.polars.alpha,dic.polars.Cd)
+    if save==True:
+        plt.savefig('figures/Cdalpha.pdf')
 
 
 def plot_correction(results, param, TSR, Yaw,Res_prandtl,Res_no_prandtl):
@@ -162,10 +168,10 @@ def plot_correction(results, param, TSR, Yaw,Res_prandtl,Res_no_prandtl):
     plt.ylabel('f [-]')
     plt.legend()
     if save==True:
-        plt.savefig('figures/prantl_correction/tip_corrections_'+str(TSR)+'_'+str(Yaw)+'.pdf')
-        
-    var=['alpha','phi','a','ap','f_tan','f_nor','circulation','local_CQ']
-    labels=[r'$\alpha$ [deg]','$\phi$ [deg]', 'a [-]','$a^,[-]$', '$C_t$ [-]', '$C_n$ [-]','$\Gamma$ [-]','$C_q [-]$']
+        plt.savefig('figures/prandtl_correction/tip_corrections_'+str(TSR)+'_'+str(Yaw)+'.pdf')
+
+    var=['alpha','phi','a','ap','f_tan','f_nor','circulation','local_CQ','local_CT']
+    labels=[r'$\alpha$ [deg]','$\phi$ [deg]', 'a [-]','$a^,[-]$', '$C_t$ [-]', '$C_n$ [-]','$\Gamma$ [-]','$C_q [-]$','$C_T [-]$']
     for i in range(len(var)):
         plt.figure()
         plt.grid()
@@ -190,9 +196,9 @@ def plot_correction(results, param, TSR, Yaw,Res_prandtl,Res_no_prandtl):
         plt.legend()
         if save==True:
             plt.savefig('figures/prandtl_correction/'+str(var[i])+'.pdf')
- 
-        
-    
+
+
+
 
 def plot_enthalpy_tube(results, param, TSR, Yaw):
 
