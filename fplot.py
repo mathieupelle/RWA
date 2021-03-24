@@ -131,12 +131,24 @@ def plot_yaw(results,param,yaw_lst):
 
 
 def plot_polars(dic):
+    E = dic.polars.Cl/dic.polars.Cd
+    Cl = dic.polars.Cl[np.argmax(E)]
+    alpha = dic.polars.alpha[np.argmax(E)]
+    Cd = dic.polars.Cd[np.argmax(E)]
+    
+    Cl_04 = dic.polars.Cl.max() - 0.4
+    Cd_04 = np.interp(Cl_04,dic.polars.Cl,dic.polars.Cd)
+    alpha_04 = np.interp(Cl_04,dic.polars.Cl,dic.polars.alpha)
+ 
+    
     plt.figure()
     plt.grid()
     plt.xlabel(r'$\alpha [deg]$')
     plt.ylabel('$C_l [-]$')
     plt.xlim([-20,30])
     plt.plot(dic.polars.alpha,dic.polars.Cl)
+    plt.plot(alpha,Cl,'x',color='black')
+    plt.plot(alpha_04,Cl_04,'x',color='red')
     if save==True:
         plt.savefig('figures/Cl.pdf')
     plt.figure()
@@ -145,6 +157,9 @@ def plot_polars(dic):
     plt.ylabel('$C_l [-]$')
     plt.xlim([0,.1])
     plt.plot(dic.polars.Cd,dic.polars.Cl)
+    plt.plot(Cd,Cl,'x',color='black')
+    plt.plot(Cd_04,Cl_04,'x',color='red')
+
     if save==True:
         plt.savefig('figures/Cd.pdf')
         plt.figure()
