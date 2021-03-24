@@ -43,13 +43,7 @@ for i in range(100):
         a_opt = a_opt**2/BEMT_opt.Results.a_global
        
     CT_old = CT_res
-    
-    fig = plt.figure('Convergency')
-    plt.plot(i,CT_res,'o')
-
-    print(CT_res)
-    print('New a_opt',a_opt,'Result a_global',BEMT_opt.Results.a_global)
-    
+        
 
 #%% Evalute both rotors under different operational conditions
 

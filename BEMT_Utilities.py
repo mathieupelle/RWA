@@ -10,7 +10,7 @@ import time
 
 
 class Rotor:
-  def __init__(self, N_radial_sections = 30, Spacing_method = 'cos' ,Optimized_geometry = None):
+  def __init__(self, N_radial_sections = 80, Spacing_method = 'lin' ,Optimized_geometry = None):
     """
       Class that defines the geometry of a rotor.
 
@@ -262,7 +262,7 @@ class BEMT:
                     self.Results.enthalpy_3[i,j] = 1/2*self.Rotor.wind_speed**2*(1-2*a)**2
                     
                     #Calculate local torque coefficient
-                    self.Results.local_CQ[i,j] = f_tan*mu*self.Rotor.radius*self.Rotor.n_blades/(0.5*self.Rotor.rho*self.Rotor.wind_speed**2*self.Rotor.radius**2)
+                    self.Results.local_CQ[i,j] = f_tan*mu*self.Rotor.radius*self.Rotor.n_blades/(0.5*self.Rotor.rho*self.Rotor.wind_speed**2*self.Rotor.radius**2*mu)
                         
                     #Store all the results
                     [self.Results.a[i,j],self.Results.ap[i,j],self.Results.phi[i,j],self.Results.alpha[i,j],self.Results.cl[i,j],
@@ -436,19 +436,19 @@ def MeshSensitivity(N_array,Spacing):
     err = abs(CT-CT[-1])/CT[-1]
     
     #Get the number of mesh points that gives us 0.001 relative error (0.1%)
-    N_chosen = np.interp(x = 0.5e-3,xp = np.flip(err),fp = np.flip(N_array))
+    N_chosen = np.interp(x = 1e-3,xp = np.flip(err),fp = np.flip(N_array))
     
     return CT,err,N_chosen,execution_time
             
             
-save = False #Flag for saving plots            
+save = True #Flag for saving plots            
             
 def plot_optimized_geometry(Rotor_org,Rotor_opt,Results_org,Results_opt,Cp_lambda_org,Cp_lambda_opt):
     
     #Set default stuff    
     x = 6  # Want figures to be A6
     plt.rc('figure', figsize=[46.82 * .5**(.5 * x), 33.11 * .5**(.5 * x)]   )
-    plt.rc('text', usetex=True)
+    #plt.rc('text', usetex=True)
     plt.rc('font', family='serif')
     
     #Compare blade geometries
@@ -570,7 +570,7 @@ def plot_optimized_geometry(Rotor_org,Rotor_opt,Results_org,Results_opt,Cp_lambd
     
 def plot_mesh_sensitivity(N_array,CT_lin,CT_cos,N_chosen_lin,N_chosen_cos,execution_time_lin,execution_time_cos,err_lin,err_cos):  
     
-    fig,ax = plt.subplots()
+    fig,ax = plt.subplots(figsize=(10,5))
     ax.plot(N_array,CT_lin,label='CT (lin)')
     ax.plot(N_array,CT_cos,'--',color='tab:blue',label='CT (cos)')
     ax.set_ylabel('Thrust coefficient $CT$ [-]')
@@ -582,8 +582,10 @@ def plot_mesh_sensitivity(N_array,CT_lin,CT_cos,N_chosen_lin,N_chosen_cos,execut
     ax2.plot([N_chosen_cos,N_chosen_cos],[execution_time_lin.min(),execution_time_cos.max()],'--',color='black',label='N (cos)')
     ax2.set_ylabel('BEMT execution time [s]')
     ax.set_xlabel('Number of radial elements $N$')
-    ax.legend(bbox_to_anchor=(1.1,0.7), loc="upper left")
-    ax2.legend(bbox_to_anchor=(1.1,0.5), loc="upper left")
+    ax.legend(bbox_to_anchor=(1.07,0.7), loc="upper left")
+    ax2.legend(bbox_to_anchor=(1.07,0.5), loc="upper left")
+    fig.tight_layout()
+    fig.subplots_adjust(right=0.8)
     if save:
         plt.savefig('figures/MeshSensitivity/CT_time.pdf')
     
