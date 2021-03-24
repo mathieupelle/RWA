@@ -566,6 +566,21 @@ def plot_optimized_geometry(Rotor_org,Rotor_opt,Results_org,Results_opt,Cp_lambd
         plt.legend()
         if save:
             plt.savefig('figures/Optimization/'+str(var[i])+'.pdf')
+            
+    #Plot torque differential
+    plt.figure()
+    plt.grid()
+    plt.xlabel(r'Radius $\frac{r}{R}$ [-]')
+    plt.ylabel('$\delta Q / (0.5 \\rho U^2 R^2)$')
+    Z=getattr(dic, 'f_tan')*dic.mu*radius*n_blades/((0.5*rho*wind_speed**2*radius**2))
+    Z_opt=getattr(dic_opt, 'f_tan')*dic.mu*radius*n_blades/((0.5*rho*wind_speed**2*radius**2))
+    
+    plt.plot(dic.mu,Z,label='Original design')
+    plt.plot(dic_opt.mu,Z_opt,label='Optimized design')
+    plt.legend()
+    if save:
+        plt.savefig('figures/Optimization/Torque_diff.pdf')
+
     
     
 def plot_mesh_sensitivity(N_array,CT_lin,CT_cos,N_chosen_lin,N_chosen_cos,execution_time_lin,execution_time_cos,err_lin,err_cos):  
