@@ -165,7 +165,7 @@ def plot_correction(results, param, TSR, Yaw,Res_prandtl,Res_no_prandtl):
     plt.scatter(dic.mu, dic.f_tip,marker='.',s=80, label='Prandtl tip', zorder=2)
     plt.scatter(dic.mu, dic.f_root,marker='.',s=80, label='Prandtl root', zorder=3)
     plt.xlabel('r/R [-]')
-    plt.ylabel('f [-]')
+    plt.ylabel('F [-]')
     plt.legend()
     if save==True:
         plt.savefig('figures/prandtl_correction/tip_corrections_'+str(TSR)+'_'+str(Yaw)+'.pdf')
