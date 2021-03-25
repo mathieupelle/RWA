@@ -15,7 +15,11 @@ from fplot import plot_enthalpy_tube,plot_yaw,plot_TSR,plot_polars,plot_correcti
 #Initialize the rotor that we will analyze
 Rotor_org = Rotor()
 
-#Create an optimized rotor at CT=0.75
+#Create an optimised rotor at CT=0.75
+print('-----------------------------------')
+print('1-Creating opimised rotor geometry')
+print('-----------------------------------')
+
 CT_opt = 0.75
 a_opt = 1/2 - np.sqrt(1-CT_opt)/2 #Calculate the corresponding value of a as an initial guess
 
@@ -58,6 +62,9 @@ Res_opt = {}
 
 #Initialize index for status message during the loop
 idx = 1 
+print('-----------------------------------')
+print('2-Evaluating original and optimised rotor under different operational conditions')
+print('-----------------------------------')
 
 #Main loop: solving all operational conditions for both rotors
 for TSR in TSR_list:
@@ -85,20 +92,32 @@ for TSR in TSR_list:
 
 TSR_list =  list(np.linspace(5,12,10))
 theta_list = list(np.linspace(-6,0,10))
-
+print('-----------------------------------')
+print('3a-Claculating Cp-TSR-Theta contours for the original geometry')
+print('-----------------------------------')
 CpLambda_org = BEMT_org.CpLambda(TSR_list,theta_list)
+print('-----------------------------------')
+print('3b-Claculating Cp-TSR-Theta contours for the optimised geometry')
+print('-----------------------------------')
 CpLambda_opt = BEMT_opt.CpLambda(TSR_list,theta_list)
 
 
 #%% Mesh Sensitivity Analysis
+
+print('-----------------------------------')
+print('4-Executing mesh sensitivity analysis')
+print('-----------------------------------')
 
 N_array = np.geomspace(10,400,10,dtype=int) #Number of radial points that we will test (integrer dtype to avoid decimals)
 
 [CT_lin,err_lin,N_chosen_lin,execution_time_lin] = MeshSensitivity(N_array, Spacing = 'lin')
 [CT_cos,err_cos,N_chosen_cos,execution_time_cos] = MeshSensitivity(N_array, Spacing = 'cos')
 
-#%% Effect of the Prandt'l tip and root correction
+#%% Effect of the Prandtl tip and root correction
 
+print('-----------------------------------')
+print('5-Studying the effect of Prandtl tip and root losses')
+print('-----------------------------------')
 Rotor_org.SetOperationalData(wind_speed = 10,TSR = 8,yaw = 0) #Set the default operational conditions
 BEMT_NoPrandtl = BEMT(Rotor_org) #Initialize BEMT instance
 BEMT_NoPrandtl.Solver(Prandtl_correction = False) #Solve the rotor
@@ -108,13 +127,12 @@ Res_Prandtl = Res_org['TSR8_yaw0'] #Store the corrected results
         
 #%% Plotting functions
 
+print('-----------------------------------')
+print('6-Plotting the results')
+print('-----------------------------------')
 x = 6  # Want figures to be A6
 plt.rc('figure', figsize=[46.82 * .5**(.5 * x), 33.11 * .5**(.5 * x)]   )
-#plt.rc('text', usetex=False)
 plt.rc('font', family='serif')
-global save
-save=True
-
 
 plot_optimized_geometry(Rotor_org,Rotor_opt,Res_org,Res_opt,CpLambda_org,CpLambda_opt)
 plot_mesh_sensitivity(N_array,CT_lin,CT_cos,N_chosen_lin,N_chosen_cos,execution_time_lin,execution_time_cos,err_lin,err_cos)

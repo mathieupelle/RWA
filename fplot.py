@@ -1,31 +1,7 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Mar 16 19:03:39 2021
-
-@author: MathieuPelle
-"""
-
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib as mpl
 import matplotlib.cm as cm
-
-
-'''
-1) Uncomment latex defaul text
-2) Create folder in directory called 'Figures'
-3) Put this in main
-↓↓↓↓↓↓↓↓↓↓↓↓↓↓
-'''
-
-#from fplot import*
-
-#plot_TSR(Res_org,Rotor_org,[6,8,10])
-#plot_yaw(Res_org,Rotor_org,[0,15,30])
-# plot_polars(Rotor_org)
-# plot_correction(Res_org, 8, 0)
-# plot_enthalpy(Res_org,Rotor_org,8,0)
-#enthalpy_tube(Res_org,Rotor_org,8,0)
 
 
 x = 6  # Want figures to be A6
@@ -34,7 +10,7 @@ plt.rc('figure', figsize=[46.82 * .5**(.5 * x), 33.11 * .5**(.5 * x)]   )
 plt.rc('font', family='serif')
 
 
-save=True # Save or not
+save=False # Save or not
 
 def plot_TSR(results,param,TSR_lst):
     var=['alpha','phi','a','ap','f_tan','f_nor','circulation','local_CQ','local_CT']

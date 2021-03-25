@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from scipy.optimize import least_squares,fsolve
 import math as m
 import time
-
+import warnings
 
 
 class Rotor:
@@ -53,6 +53,17 @@ class Rotor:
     self.SetOperationalData(wind_speed=10, TSR=8, yaw=0) #Assign default values to operational conditions
     
   def SetOperationalData(self,wind_speed,TSR,yaw,rho=1.225):
+    """
+      Operational data associated to the rotor
+
+      Parameters
+      ----------
+      wind_speed : Float [m/s]
+      TSR : Float [-]
+      yaw : Float [deg]
+      rho : Float [kg/m3], optional
+           The default is 1.225.
+    """
     self.wind_speed = wind_speed
     self.TSR = TSR
     self.yaw = yaw*np.pi/180 #Input yaw should be in degrees!
@@ -85,21 +96,8 @@ class Results: #Create the variables to store the results from BEMT
                
 class BEMT:
     def __init__(self,Rotor):
-        """
-        
-
-        Parameters
-        ----------
-        Rotor : TYPE
-            Trying a description bliblis.
-
-        Returns
-        -------
-        None.
-
-        """
         self.Rotor = Rotor
-    
+        
     def RelativeVelocities(self,a,ap,mu,azimuth=0):
         u_tan = self.Rotor.omega*self.Rotor.radius*mu*(1+ap) + self.Rotor.wind_speed*np.sin(self.Rotor.yaw)*np.sin(azimuth)
        
@@ -187,7 +185,9 @@ class BEMT:
     
     
     def Solver(self,Prandtl_correction = True,N_iter_max = 1000,delta=1e-6):
-        
+        warnings.simplefilter('ignore') #Ignore error messages (division by 0 at the innermost sections with very high nº of points)
+       
+    
         if self.Rotor.yaw == 0:
             N_azimuth = 2
         else:
@@ -299,7 +299,8 @@ class BEMT:
                 self.Solver()
                 
                 #Output a status message
-                print('Cp-TSR-Theta contours: Point',i,'out of', CP.size,'calculated')
+                if np.remainder(i,10) == 0: 
+                    print('Cp-TSR-Theta contours: Point',i,'out of', CP.size,'calculated')
                 i = i+1
                 
                 #Store the results
@@ -320,15 +321,7 @@ class BEMT:
         self.Rotor.theta = theta_org
         
         return Cp_lambda
-
-                    
-            
-                    
-        
-
-         
-                            
-                        
+                                             
 
 class Optimizer:
     def __init__(self, Rotor_original, a, TSR):
@@ -352,8 +345,7 @@ class Optimizer:
         #Execute the optimization for chord and twist
         self.ChordOpt()
         self.TwistOpt()
-        
-        
+                
         
     def residuals(self,x):
         
@@ -380,8 +372,7 @@ class Optimizer:
      
         #Get residual c and ap
         res_c = 4*np.pi*self.r*m.sin(phi)**2*F*2*self.a/(Cy*self.B*(1-self.a)) - c
-        res_ap = 1/(4*F*np.sin(phi)*np.cos(phi)/(sigma*Cx)-1) - ap
-        
+        res_ap = 1/(4*F*np.sin(phi)*np.cos(phi)/(sigma*Cx)-1) - ap      
         
         return res_c,res_ap
     
@@ -441,7 +432,7 @@ def MeshSensitivity(N_array,Spacing):
     return CT,err,N_chosen,execution_time
             
             
-save = True #Flag for saving plots            
+save = False #Flag for saving plots            
             
 def plot_optimized_geometry(Rotor_org,Rotor_opt,Results_org,Results_opt,Cp_lambda_org,Cp_lambda_opt):
     
