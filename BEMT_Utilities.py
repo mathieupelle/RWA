@@ -274,11 +274,26 @@ class BEMT:
         
         #Calculate the global axial induction factor
         self.Results.a_global = self.NewInductionFactor(self.Results.CT, self.Rotor.yaw)
-        
-        
 
 
     def CpLambda(self,TSR_list,theta_list):
+        """
+        Generate Cp-Theta-Lambda contours
+
+        Parameters
+        ----------
+        TSR_list : Array of TSR values to be analysed.
+        theta_list : Array of pitch values to be analysed
+
+        Returns
+        -------
+        Cp_lambda : Dictionary containing:
+            -TSR_list
+            -theta_list
+            -CP values
+            -CT values
+            -CQ values
+        """      
         
         #Prepare variables to store results
         [CP,CT,CQ] = np.zeros((3,len(TSR_list),len(theta_list)))

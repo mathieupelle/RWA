@@ -10,7 +10,7 @@ from BEMT_Utilities import Rotor,BEMT,Optimizer,MeshSensitivity,plot_optimized_g
 from fplot import plot_enthalpy_tube,plot_yaw,plot_TSR,plot_polars,plot_correction
     
     
-#%% Define the original rotor and calculate optimized geometry
+#%% 1 - Define the original rotor and calculate optimized geometry
 
 #Initialize the rotor that we will analyze
 Rotor_org = Rotor()
@@ -49,7 +49,7 @@ for i in range(100):
     CT_old = CT_res
         
 
-#%% Evalute both rotors under different operational conditions
+#%% 2 - Evalute both rotors under different operational conditions
 
 #Define operational conditions to be analyzed
 TSR_list =  [6, 8, 10]
@@ -88,7 +88,7 @@ for TSR in TSR_list:
         idx = idx+1
         
 
-#%% Generate CP-Pitch-Lambda plots for both turbines
+#%% 3 - Generate CP-Pitch-Lambda plots for both turbines
 
 TSR_list =  list(np.linspace(5,12,10))
 theta_list = list(np.linspace(-6,0,10))
@@ -102,7 +102,7 @@ print('-----------------------------------')
 CpLambda_opt = BEMT_opt.CpLambda(TSR_list,theta_list)
 
 
-#%% Mesh Sensitivity Analysis
+#%% 4 - Mesh Sensitivity Analysis
 
 print('-----------------------------------')
 print('4-Executing mesh sensitivity analysis')
@@ -113,7 +113,7 @@ N_array = np.geomspace(10,400,10,dtype=int) #Number of radial points that we wil
 [CT_lin,err_lin,N_chosen_lin,execution_time_lin] = MeshSensitivity(N_array, Spacing = 'lin')
 [CT_cos,err_cos,N_chosen_cos,execution_time_cos] = MeshSensitivity(N_array, Spacing = 'cos')
 
-#%% Effect of the Prandtl tip and root correction
+#%% 5 - Effect of the Prandtl tip and root correction
 
 print('-----------------------------------')
 print('5-Studying the effect of Prandtl tip and root losses')
@@ -125,7 +125,7 @@ Res_NoPrandtl = BEMT_NoPrandtl.Results #Store the no-prandtl correction results
 Res_Prandtl = Res_org['TSR8_yaw0'] #Store the corrected results
       
         
-#%% Plotting functions
+#%% 6 - Plotting functions
 
 print('-----------------------------------')
 print('6-Plotting the results')

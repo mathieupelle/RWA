@@ -9,7 +9,6 @@ plt.rc('figure', figsize=[46.82 * .5**(.5 * x), 33.11 * .5**(.5 * x)]   )
 #plt.rc('text', usetex=True)
 plt.rc('font', family='serif')
 
-
 save=False # Save or not
 
 def plot_TSR(results,param,TSR_lst):
@@ -48,7 +47,7 @@ def plot_yaw(results,param,yaw_lst):
             Z = getattr(dic, str(var[j]))
             if var[j]=='f_tan' or var[j]=='f_nor':
                 Z=getattr(dic, str(var[j]))/(0.5*param.rho*param.wind_speed**2*param.radius)
-            elif var[i]=='circulation':
+            elif var[j]=='circulation':
                 Z=getattr(dic, str(var[j]))/((np.pi*param.wind_speed**2/(param.n_blades*param.omega)))
             else:
                 Z=getattr(dic, str(var[j]))
@@ -71,7 +70,7 @@ def plot_yaw(results,param,yaw_lst):
             Z = getattr(dic, str(var[j]))
             if var[j]=='f_tan' or var[j]=='f_nor':
                 Z=getattr(dic, str(var[j]))/(0.5*param.rho*param.wind_speed**2*param.radius)
-            elif var[i]=='circulation':
+            elif var[j]=='circulation':
                 Z=getattr(dic, str(var[j]))/((np.pi*param.wind_speed**2/(param.n_blades*param.omega)))
             else:
                 Z=getattr(dic, str(var[j]))
@@ -138,7 +137,7 @@ def plot_polars(dic):
 
     if save==True:
         plt.savefig('figures/Cd.pdf')
-        plt.figure()
+    plt.figure()
     plt.grid()
     plt.xlabel(r'$\alpha [deg]$')
     plt.ylabel('$C_d [-]$')
@@ -187,8 +186,6 @@ def plot_correction(results, param, TSR, Yaw,Res_prandtl,Res_no_prandtl):
         plt.legend()
         if save==True:
             plt.savefig('figures/prandtl_correction/'+str(var[i])+'.pdf')
-
-
 
 
 def plot_enthalpy_tube(results, param, TSR, Yaw):
@@ -263,110 +260,3 @@ def plot_enthalpy_tube(results, param, TSR, Yaw):
     ax.view_init(11,-18)
     if save==True:
         plt.savefig('figures/enthalpy1_'+str(TSR)+'_'+str(Yaw)+'.pdf')
-
-    #Ugly plot 1
-    plt.figure()
-    plt.grid()
-    plt.plot(mu1,h1,label='Infinity Upwind')
-    plt.plot(mu2,h2,label='Rotor Upwind')
-    plt.plot(mu3,h3,label='Rotor Downwind')
-    plt.plot(mu4,h4,label='Infinity Downwind')
-    plt.xlabel('r/R [-]')
-    plt.ylabel('h_0 [-]')
-    plt.legend()
-
-    if save==True:
-        plt.savefig('figures/enthalpy2_'+str(TSR)+'_'+str(Yaw)+'.pdf')
-
-    #Ugly plot 2
-    # plt.grid()
-    # plt.plot(Z*0,mu1)
-    # plt.plot(Z,mu2)
-    # plt.plot(2*Z,mu3)
-    # plt.plot(3*Z,mu4)
-    # plt.plot(Z*0,-mu1)
-    # plt.plot(Z,-mu2)
-    # plt.plot(2*Z,-mu3)
-    # plt.plot(3*Z,-mu4)
-
-
-# = = = = = = = = = =   OLD  = = = = = = = = = = = = = #
-
-
-# def plot_yaw(results,param,yaw_lst):
-#     var=['alpha','phi','a','ap','f_tan','f_nor','circulation','local_CQ']
-#     labels=[r'$\alpha$ [deg]','$\phi$ [deg]', 'a [-]','$a^,[-]$', '$C_t$ [-]', '$C_n$ [-]','$\Gamma$ [-]','$C_q [-]$']
-#     for i in range(len(yaw_lst)):
-#         for j in range(len(var)):
-#             dic=results['TSR'+str(8)+'_yaw'+str(yaw_lst[i])]
-#             fig, ax = plt.subplots(subplot_kw=dict(projection='polar'))
-#             Z = getattr(dic, str(var[j]))
-#             if var[j]=='f_tan' or var[j]=='f_nor':
-#                 Z=getattr(dic, str(var[j]))/(0.5*param.rho*param.wind_speed**2*param.radius)
-#             elif var[i]=='circulation':
-#                 Z=getattr(dic, str(var[j]))/((np.pi*param.wind_speed**2/(param.n_blades*param.omega)))
-#             else:
-#                 Z=getattr(dic, str(var[j]))
-#             if yaw_lst[i]==0:
-#                 dic2=results['TSR'+str(8)+'_yaw'+str(yaw_lst[1])]
-#                 r = np.hstack((dic2.mu,dic2.mu[:,0].reshape(len(dic2.mu[:,0]),1)))
-#                 psi=dic2.azimuth
-#                 psi=np.append(psi,2*np.pi+psi[0])
-#                 psi=np.tile(psi.transpose(),(len(r[:,0]), 1))
-#                 pp=ax.contourf(psi,r , np.tile(Z,len(psi[0])),20)
-#                 ax.set_rlabel_position(225)
-#             else:
-#                 ax.set_theta_zero_location('N') ## CHECK!!!!!!!
-#                 r = np.hstack((dic.mu,dic.mu[:,0].reshape(len(dic.mu[:,0]),1)))
-#                 psi=dic.azimuth
-#                 psi=np.append(psi,2*np.pi+psi[0])
-#                 psi=np.tile(psi.transpose(),(len(r[:,0]), 1))
-#                 Z = np.hstack((Z,Z[:,0].reshape(len(Z[:,0]),1)))
-#                 pp=ax.contourf(psi,r,Z,20)
-#                 ax.set_rlabel_position(135)
-#             rlabels = ax.get_ymajorticklabels()
-#             for label in rlabels:
-#                 label.set_color('white')
-#             cbar = plt.colorbar(pp, pad=0.1)
-#             cbar.ax.set_ylabel(labels[j], rotation=270, labelpad=15)
-#             plt.set_cmap('viridis')
-#             if save==True:
-#                 plt.savefig('figures/Yaw'+str(yaw_lst[i])+'_'+str(var[j])+'.pdf')
-
-
-# NOT NEEDED now
-# Spacing plot, uncomment if you have the put the spacing_data file in the same folder
-
-# def plot_spacing(TSR,Yaw):
-#     key='TSR'+str(TSR)+'_yaw'+str(Yaw)
-#     plt.figure()
-#     plt.grid()
-#     points_N=[20,40]
-#     marker=['-o','-x']
-#     for i in range(len(points_N)):
-#         results1 = np.load('spacing_data\dicN'+str(points_N[i])+'.npy',allow_pickle='TRUE').item()
-#         dic1=results1[key]
-#         plt.plot(dic1.mu, dic1.a, marker[i],markersize=7, label='Constant spacing N='+str(len(dic1.mu)))
-#     plt.xlabel('r/R')
-#     plt.ylabel('a [-]')
-#     plt.legend()
-#     if save==True:
-#         plt.savefig('figures/spacing1_'+str(TSR)+'_'+str(Yaw)+'.pdf')
-
-#     points_cos=[40,40]
-#     plt.figure()
-#     plt.grid()
-#     results1 = np.load('spacing_data\dicN'+str(points_cos[i])+'.npy',allow_pickle='TRUE').item()
-#     results2 = np.load('spacing_data\diccos'+str(points_cos[i])+'.npy',allow_pickle='TRUE').item()
-#     dic1=results1[key]
-#     dic2=results2[key]
-#     plt.plot(dic2.mu, dic2.a,'-o',markersize=5, label='Cosine spacing N='+str(len(dic2.mu)))
-#     plt.plot(dic1.mu, dic1.a,'-x',markersize=8, label='Constant spacing N='+str(len(dic2.mu)))
-#     plt.xlabel('r/R')
-#     plt.ylabel('a [-]')
-#     plt.legend()
-#     if save==True:
-#         plt.savefig('figures/spacing2_'+str(TSR)+'_'+str(Yaw)+'.pdf')
-
-
-# plot_spacing(8,0)
