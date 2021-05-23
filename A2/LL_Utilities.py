@@ -8,63 +8,48 @@ Created on Mon May 17 10:38:44 2021
 
 import numpy as np
 import math as m
-import pandas as pd
 
-
-
-
-
-# class Rotor:
-#   def __init__(self, rotor_opt):
-
-#      self.R = rotor_opt.radius
-#      self.TSR = rotor_opt.TSR
-#      self.N_blades = rotor_opt.n_blades
-#      self.theta_p = rotor_opt.
-#      self.V_inf = [rotor_opt.wind_speed, 0, 0]
-#      self.omega = self.TSR*self.V_inf/self.R
-#      self.polars = pd.read_excel('polar DU95W180 (3).xlsx',header = 3,names=['alpha','Cl','Cd','Cm'])
-#      self.theta_p = rotor_opt.theta
-#      self.beta = rotor_opt.beta
-#      self.c = rotor_opt.chord
-
-#   def Polars(self,alpha):
-#       cl = np.interp(alpha,np.array(self.polars['alpha']),np.array(self.polars['Cl']))
-#       cd = np.interp(alpha,np.array(self.polars['alpha']),np.array(self.polars['Cd']))
-#       return cl, cd
-
-#   # def BladeGeometry(self, r):
-
-#   #     c = 3*(1-r/self.R)+1
-#   #     beta = -14*(1-r/self.R)
-#   #     theta = np.deg2rad(self.theta_p + beta)
-
-#   #     return c, theta
 
 class VortexGeometry:
-    def __init__(self, rotors, NumberofRotations, RotorLocations):
+    def __init__(self, rotors, NumberofRotations, RotorLocations, result_BEM):
+        """
+          Class that defines the entire vortex system with filaments and control points
 
-        N_WT = len(rotors)
+          Parameters
+          ----------
+          rotors : List with different rotor geometries imported from BEM code
+          NumberofRotations : Number of rotations for wake discretisation
+          RotorLocations : List with locations of rotors in z. First rotor set at 0.
+          result_BEM : BEM results used to correct the wake propagation speed locally
+
+        """
+
+        N_WT = len(rotors) #Number of wind turbines
         self.D_lst = RotorLocations
         self.WT_lst = {}
+        self.a_BEM = result_BEM.a[:,0]
+        self.mu_BEM = result_BEM.mu[:,0]
 
+        # Looping for every wind turbine
         for t in range(N_WT):
+
+            # Empty dictionnay for storing data
             self.WT_lst['WT'+str(t+1)] = {'r_lst':[], 'psi_lst':[],
                                           'N_pts':0, 'N_hs':0, 'N_rot':0, 'N_rad':0,
                                           'blades':{'control_pts':[], 'HS_vortex':[], 'panels':[]}}
 
-            rotor = rotors[t]
-            N_blades = rotor.n_blades
-            TSR = rotor.TSR
-            R = rotor.radius
-            N_rad = len(rotor.mu)
-            D = self.D_lst[t]
+            # Specific parameters for one rotor
+            rotor = rotors[t] #Rotor class
+            N_blades = rotor.n_blades #Number of blades
+            TSR = rotor.TSR #Tip speed ratio
+            R = rotor.radius #Radius
+            N_rad = len(rotor.mu) #Number of radial positions
+            D = self.D_lst[t] #Z shift of rotor center
+            s_lst = rotor.mu*rotor.radius #Array of radial positions
+            N_rot = NumberofRotations[t] # Number of rotations
+            psi_lst = np.linspace(0,2*m.pi*N_rot,2*N_rot*30+1) #Arrray of discretised rotation
 
-            s_lst = rotor.mu*rotor.radius
-
-            N_rot = NumberofRotations[t]
-            psi_lst = np.linspace(0,2*m.pi*N_rot,2*N_rot*10+1)
-
+            #Emptry lists to store geometry parameters
             pts_lst = []
             hs_lst = []
             panel_lst = []
@@ -77,11 +62,12 @@ class VortexGeometry:
                 #For each element
                 for i in range(N_rad-1):
                     fil = []
+
                     ## Control points ##
-                    r = (s_lst[i+1]+s_lst[i])/2 #Radial position
+                    r = (s_lst[i+1]+s_lst[i])/2 #Radial position in the middle of each element
                     r_lst.append(r)
                     [c, theta] = VortexGeometry.geometry_interp(r, rotor) #Chord and pitch
-                    vec_n = [m.cos(theta),0,-m.sin(theta)]
+                    vec_n = [m.cos(theta),0,-m.sin(theta)] #Normal vector
                     vec_n = VortexGeometry.Transform(vec_n, theta_r, D) #Transformed normal vector
                     vec_t = [-m.sin(theta),0,-m.cos(theta)]
                     vec_t = VortexGeometry.Transform(vec_t, theta_r, D) #Transformed tangential vector
@@ -92,32 +78,42 @@ class VortexGeometry:
                     VF = {'pos1':[0,s_lst[i],0], 'pos2':[0,s_lst[i+1],0], 'Gamma':1}
                     fil.append(VF)
 
-                    #VF2: filament in upstream direction at 1st element position
+                    #VF2: filament in upstream direction at 1st radial element position
                     [c, theta] = VortexGeometry.geometry_interp(s_lst[i], rotor)
                     VF = {'pos1':[c*m.sin(-theta),s_lst[i],-c*m.cos(theta)], 'pos2':[0,s_lst[i],0], 'Gamma':1}
                     fil.append(VF)
 
                     #All filaments downstream of VF2 up to limit defined by number of rotations
                     for j in range(len(psi_lst)-1):
+                        # 1st point (downstream)
                         x = fil[-1]['pos1'][0]
                         y = fil[-1]['pos1'][1]
                         z = fil[-1]['pos1'][2]
-                        dx = (psi_lst[j+1]-psi_lst[j])/TSR*R
+
+                        # 2nd point (upstream)
+                        #a_temp = 1/3 # Average wake velocity
+                        a_temp = np.interp(s_lst[i]/rotor.radius, self.mu_BEM, self.a_BEM) # Local wake velocity
+                        dx = (psi_lst[j+1]-psi_lst[j])/TSR*R*(1-a_temp)
                         dy = (m.cos(-psi_lst[j+1])-m.cos(-psi_lst[j]))*s_lst[i]
                         dz = (m.sin(-psi_lst[j+1])-m.sin(-psi_lst[j]))*s_lst[i]
                         VF = {'pos1':[x+dx,y+dy,z+dz], 'pos2':[x,y,z], 'Gamma':1}
                         fil.append(VF)
 
-                    #VF3: filament in downstream direction at 2nd element position
+                    #VF3: filament in downstream direction at 2nd radial element position
                     [c, theta] = VortexGeometry.geometry_interp(s_lst[i+1], rotor)
                     VF = {'pos1':[0,s_lst[i+1],0], 'pos2':[c*m.sin(-theta),s_lst[i+1],-c*m.cos(theta)], 'Gamma':1}
                     fil.append(VF)
                     #All filaments downstream of VF3 up to limit defined by number of rotations
                     for j in range(len(psi_lst)-1):
+                        # 1st point (upstream)
                         x = fil[-1]['pos2'][0]
                         y = fil[-1]['pos2'][1]
                         z = fil[-1]['pos2'][2]
-                        dx = (psi_lst[j+1]-psi_lst[j])/TSR*R
+
+                        # 2nd point (downstream)
+                        #a_temp = 1/3
+                        a_temp = np.interp(s_lst[i+1]/rotor.radius, self.mu_BEM, self.a_BEM)
+                        dx = (psi_lst[j+1]-psi_lst[j])/TSR*R*(1-a_temp)
                         dy = (m.cos(-psi_lst[j+1])-m.cos(-psi_lst[j]))*s_lst[i+1]
                         dz = (m.sin(-psi_lst[j+1])-m.sin(-psi_lst[j]))*s_lst[i+1]
                         VF = {'pos1':[x,y,z], 'pos2':[x+dx,y+dy,z+dz], 'Gamma':1}
@@ -128,15 +124,15 @@ class VortexGeometry:
                         fil[j]['pos1'] = VortexGeometry.Transform(fil[j]['pos1'], theta_r, D)
                         fil[j]['pos2'] = VortexGeometry.Transform(fil[j]['pos2'], theta_r, D)
 
-                    ## Panels ##
-                    [c1, theta1] = VortexGeometry.geometry_interp(s_lst[i], rotor)
-                    [c2, theta2] = VortexGeometry.geometry_interp(s_lst[i+1], rotor)
-                    p1 = VortexGeometry.Transform([-0.25*c1*m.sin(-theta1)*0 , s_lst[i], 0.25*c1*m.cos(theta1)],theta_r,D)
-                    p2 = VortexGeometry.Transform([-0.25*c2*m.sin(-theta2)*0 , s_lst[i+1], 0.25*c2*m.cos(theta2)],theta_r,D)
-                    p3 = VortexGeometry.Transform([0.75*c2*m.sin(-theta2)*0 , s_lst[i+1], -0.75*c2*m.cos(theta2)],theta_r,D)
-                    p4 = VortexGeometry.Transform([0.75*c1*m.sin(-theta1)*0 , s_lst[i], -0.75*c1*m.cos(theta1)],theta_r,D)
+                    # ## Panels ##
+                    # [c1, theta1] = VortexGeometry.geometry_interp(s_lst[i], rotor)
+                    # [c2, theta2] = VortexGeometry.geometry_interp(s_lst[i+1], rotor)
+                    # p1 = VortexGeometry.Transform([-0.25*c1*m.sin(-theta1)*0 , s_lst[i], 0.25*c1*m.cos(theta1)],theta_r,D)
+                    # p2 = VortexGeometry.Transform([-0.25*c2*m.sin(-theta2)*0 , s_lst[i+1], 0.25*c2*m.cos(theta2)],theta_r,D)
+                    # p3 = VortexGeometry.Transform([0.75*c2*m.sin(-theta2)*0 , s_lst[i+1], -0.75*c2*m.cos(theta2)],theta_r,D)
+                    # p4 = VortexGeometry.Transform([0.75*c1*m.sin(-theta1)*0 , s_lst[i], -0.75*c1*m.cos(theta1)],theta_r,D)
 
-                    panel_lst.append({'p1':p1, 'p2':p2, 'p3':p3, 'p4':p4})
+                    # panel_lst.append({'p1':p1, 'p2':p2, 'p3':p3, 'p4':p4})
                     hs_lst.append(fil)
 
             #Storing all data
@@ -151,6 +147,20 @@ class VortexGeometry:
             self.WT_lst['WT'+str(t+1)]['blades']['panels'] = panel_lst
 
     def Transform(vec,theta_r,D):
+        """
+          Coordinate transformation from x,y,z to correct blade position with z-shift of rotor
+
+          Parameters
+          ----------
+          vec : Vector to transform
+          theta_r : Rotation angle corresponding to blade position
+          D : z-coordinate of rotor
+
+          Returns
+          -------
+          [x,y,z+D] : Transformed vector
+
+        """
         x = vec[0]
         y = vec[1]*m.cos(theta_r)-vec[2]*m.sin(theta_r)
         z = vec[1]*m.sin(theta_r)+vec[2]*m.cos(theta_r)
@@ -168,6 +178,21 @@ class VortexGeometry:
 
 
 def SingleFilament(ctrl_point,point1,point2,gamma):
+    """
+      Computes induced velocities from vortex filament using Biot-Savart
+
+      Parameters
+      ----------
+      ctrl_point : Point at which to compute velocities (control point)
+      point1 : Vortex filament first point coordinates
+      point2 : Vortex filament second point coordinates
+      gamma : Circulation of vortex
+
+      Returns
+      -------
+      [U,V,W] : Induced velocities vector
+
+    """
 
     [xp,yp,zp] = ctrl_point
     [x1,y1,z1] = point1
@@ -204,20 +229,38 @@ def SingleFilament(ctrl_point,point1,point2,gamma):
     return [U,V,W]
 
 def InducedVelocities(geometry):
+    """
+      Computes induced velocity matrix (all control points and all horshoe vortices) for unit circulation
 
+      Parameters
+      ----------
+      geometry : Class with vortex system geometry (control points and vortices positions)
+
+      Returns
+      -------
+      u_ind_mat : x induced velocity matrix
+      v_ind_mat : y induced velocity matrix
+      w_ind_mat : z induced velocity matrix
+      idx_lst : list of indices to know when new rotor starts
+
+    """
+
+    # Combining multiple rotor system
     rotors = geometry.WT_lst
     N_pts = 0
     N_hs = 0
     ctrl_pts = []
     hs_vortex = []
     idx_lst = [0]
+    # Loop over rotors
     for t in range(len(rotors)):
-        N_pts += rotors['WT'+str(t+1)]['N_pts']
-        N_hs += rotors['WT'+str(t+1)]['N_hs']
-        idx_lst.append(N_hs)
-        ctrl_pts = ctrl_pts + rotors['WT'+str(t+1)]['blades']['control_pts']
-        hs_vortex =  hs_vortex + rotors['WT'+str(t+1)]['blades']['HS_vortex']
+        N_pts += rotors['WT'+str(t+1)]['N_pts'] #Total number of control points of system
+        N_hs += rotors['WT'+str(t+1)]['N_hs'] #Total number of vortices of system
+        idx_lst.append(N_hs) #Index of where circulation switches rotors
+        ctrl_pts = ctrl_pts + rotors['WT'+str(t+1)]['blades']['control_pts'] #Stacking control points
+        hs_vortex =  hs_vortex + rotors['WT'+str(t+1)]['blades']['HS_vortex'] #Stacking vortices
 
+    # Empty induced velocity matrices
     u_ind_mat = np.zeros((N_pts,N_hs))
     v_ind_mat = np.zeros((N_pts,N_hs))
     w_ind_mat = np.zeros((N_pts,N_hs))
@@ -238,6 +281,7 @@ def InducedVelocities(geometry):
 
                 # Compute induced velocity
                 w = SingleFilament(coords,fil['pos1'],fil['pos2'],fil['Gamma'])
+                # Sum effect of all filaments at control point for 1 vortex
                 u_ind+=w[0]
                 v_ind+=w[1]
                 w_ind+=w[2]
@@ -253,47 +297,70 @@ def InducedVelocities(geometry):
 
 
 
-def LiftingLine(rotors,geometry):
+def LiftingLine(rotors,geometry,result_BEM):
+    """
+      Iterative procedure for finding the circulation of system and rotor performance
+
+      Parameters
+      ----------
+      rotors : List with rotors containing operating conditions and basic geometry
+      geometry : Class with vortex system geometry (control points and vortices positions)
+      result_BEM : BEM results used as starting guess for circulation to speed up convegence
+
+      Returns
+      -------
+      results : Class with all relevant results
+
+    """
 
     #Induced velocity matrices
     [u_ind_mat, v_ind_mat, w_ind_mat,idx_lst] = InducedVelocities(geometry)
 
-    gamma = np.zeros((len(u_ind_mat[:,0])))
-    D_lst = geometry.D_lst
+    #Arranging BEM  circulation results to fit required format (N blades, M rotors)
+    array = np.append(result_BEM.circulation,result_BEM.circulation)
+    gamma = np.append(array,result_BEM.circulation)
+    #gamma = np.zeros((len(u_ind_mat[:,0])))
 
+    D_lst = geometry.D_lst #z distance list
+
+    #Initialising list with multiple results classes
     results = []
     for i in range(len(rotors)):
         results.append(WT_Result(i))
 
+    ## Lifting line iterative loop ##
     #Iteration controls
     it = 0
-    it_max = 2000
+    it_max = 1000 #Max iteration number
     error = 1e12
-    limit = 1e-6
-    UR = 0.2
+    limit = 1e-6 #Error convergence criteria
+    UR = 0.2 #Under relaxation factor
     while it<it_max and error>limit:
         if it == it_max - 1:
             print('Max. iterations reached')
+
+        # Multiplying induced velocity matrix with circulation
         u_all = (u_ind_mat*gamma).sum(axis=1)
         v_all = (v_ind_mat*gamma).sum(axis=1)
         w_all = (w_ind_mat*gamma).sum(axis=1)
+
         gamma_new = []
-
+        # For every rotor
         for t in range(len(rotors)):
-            # results['WT'+str(t+1)] = {'r':[], 'a':[], 'ap':[], 'f_nor':[], 'f_tan':[],
-            #                           'circulation':[], 'alpha':[], 'phi':[]}
-            rotor = rotors[t]
-            rotor_geo = geometry.WT_lst['WT'+str(t+1)]
-            omega = rotor.omega
-            V_inf = [rotor.wind_speed, 0, 0]
-            N_pts = rotor_geo['N_pts']
+            rotor = rotors[t] #Specific rotor parameters
+            rotor_geo = geometry.WT_lst['WT'+str(t+1)] #Specific vortex system geometry
+            omega = rotor.omega #Rotation speed
+            V_inf = [rotor.wind_speed, 0, 0] #Wind velocity
+            N_pts = rotor_geo['N_pts'] #Number of radial points
 
+            #Unpacking induced velocities for current rotor
             u = u_all[idx_lst[t]:idx_lst[t+1]]
             v = v_all[idx_lst[t]:idx_lst[t+1]]
             w = w_all[idx_lst[t]:idx_lst[t+1]]
 
-            r_lst = rotor_geo['r_lst']
+            r_lst = rotor_geo['r_lst'] #Radial positions (middle of element)
 
+            # Empty lists for storage
             a = np.zeros((N_pts))
             at = np.zeros((N_pts))
             F_ax = np.zeros((N_pts))
@@ -302,73 +369,70 @@ def LiftingLine(rotors,geometry):
             alpha = np.zeros((N_pts))
             gamma_new_wt = np.zeros((N_pts))
 
+            # For every radial position
             for i in range(N_pts):
-                ctrl_pt = rotor_geo['blades']['control_pts'][i]['coords']
-                coords = [ctrl_pt[0], ctrl_pt[1], ctrl_pt[2]- D_lst[t]]
-                r = r_lst[i]
+                ctrl_pt = rotor_geo['blades']['control_pts'][i]['coords'] #Control point coordinates
+                coords = [ctrl_pt[0], ctrl_pt[1], ctrl_pt[2]- D_lst[t]] #Correcting coordinate to local rotor axis
+                r = r_lst[i] #Radius at control point
                 omega_vec = np.cross([-omega,0,0],coords) #Rotational velocity at point
-                # Velocity in x,y,z
+
+                # Velocity vector
                 V = [V_inf[0] + u[i] + omega_vec[0], V_inf[1] + v[i] + omega_vec[1], V_inf[2] + w[i] + omega_vec[2]]
+                azim_vec = np.cross([-1/r,0,0],coords) #Azimuthal vector
+                V_az = np.dot(azim_vec,V) #Azimuthal velocity
+                axial_vec = [1,0,0] #Axial vector
+                V_ax = np.dot(axial_vec,V) #Axial velocity
 
-                azim_vec = np.cross([-1/r,0,0],coords)
-                V_az = np.dot(azim_vec,V)
-                axial_vec = [1,0,0]
-                V_ax = np.dot(axial_vec,V)
-                #a[i] = (-u[i] + omega_vec[0])/V_inf[0]
-                a[i] = 1-V_ax/V_inf[0]
-                at[i] = V_az/(omega*r)-1
-
-                V_mag = m.sqrt(V_ax**2+V_az**2)
-                phi[i] = m.atan(V_ax/V_az)
+                # BEM equations
+                #a[i] = -(u[i] + omega_vec[0])/V_inf[0]
+                a[i] = 1-V_ax/V_inf[0] #Axial induction
+                at[i] = V_az/(omega*r)-1 #Azimuthal induction
+                V_mag = m.sqrt(V_ax**2+V_az**2) #Velocity magnitude
+                phi[i] = m.atan(V_ax/V_az) #Flow angle
                 [c, theta] = VortexGeometry.geometry_interp(r, rotor)
-                alpha[i] = np.rad2deg(phi[i] - theta)
-                [Cl,Cd] =  VortexGeometry.polar_interp(alpha[i], rotor)
+                alpha[i] = np.rad2deg(phi[i] - theta) #Angle of attack
+                [Cl,Cd] =  VortexGeometry.polar_interp(alpha[i], rotor) #Lift and drag coefficients
 
-                L = 0.5*V_mag**2*Cl*c
-                D = 0.5*V_mag**2*Cd*c
+                L = 0.5*V_mag**2*Cl*c #Lift
+                D = 0.5*V_mag**2*Cd*c #Drag
 
-                F_ax[i] = L*m.cos(phi[i])+D*m.sin(phi[i])
-                F_az[i] = L*m.sin(phi[i])-D*m.cos(phi[i])
-                gamma_new_wt[i] = 0.5*V_mag*Cl*c
-                gamma_new.append(gamma_new_wt[i])
+                F_ax[i] = L*m.cos(phi[i])+D*m.sin(phi[i]) #Axial force
+                F_az[i] = L*m.sin(phi[i])-D*m.cos(phi[i]) #Azimuthal force
+                gamma_new_wt[i] = 0.5*V_mag*Cl*c #Updated circulation
+                gamma_new.append(gamma_new_wt[i]) #Stacking circulation to combine for all rotors
 
-           # V_inf_mag = m.sqrt(np.dot(V_inf,V_inf))
+            # Storing all results
             results[t].mu = np.array(r_lst)/rotor.radius
             results[t].a = a
             results[t].ap = at
-            results[t].f_nor = F_ax#/(0.5*V_inf_mag**2*rotor.radius)
-            results[t].f_tan = F_az#/(0.5*V_inf_mag**2*rotor.radius)
-            results[t].circulation = gamma_new_wt#/(V_inf_mag**2*m.pi/(rotor.n_blades*omega))
+            results[t].f_nor = F_ax
+            results[t].f_tan = F_az
+            results[t].circulation = gamma_new_wt
             results[t].alpha = alpha
             results[t].phi = np.rad2deg(phi)
-            # results['WT'+str(t+1)]['r'] = np.array(r_lst)
-            # results['WT'+str(t+1)]['a'] = a
-            # results['WT'+str(t+1)]['ap'] = at
-            # results['WT'+str(t+1)]['f_nor'] = F_ax#/(0.5*V_inf_mag**2*rotor.radius)
-            # results['WT'+str(t+1)]['f_tan'] = F_az#/(0.5*V_inf_mag**2*rotor.radius)
-            # results['WT'+str(t+1)]['circulation'] = gamma_new_wt#/(V_inf_mag**2*m.pi/(rotor.n_blades*omega))
-            # results['WT'+str(t+1)]['alpha'] = alpha
-            # results['WT'+str(t+1)]['phi'] = np.rad2deg(phi)
 
+        # Cimputing error between new and old circulation values
         gamma_new = np.array(gamma_new)
-        error=max(abs(gamma_new-gamma))
-        UR = 0.2
+        error=np.linalg.norm(gamma_new - gamma)
 
         ## Carlos' (weird) way to control the iteration
         # referror=max(abs(gamma_new))
         # referror=max(referror,0.001)
         # error=max(abs(gamma_new-gamma))
-        # diff = error
         # error = error/referror
         # UR = max((1-error)*0.3,0.1)
 
-        gamma = UR*gamma_new + (1-UR)*gamma
+        gamma = UR*gamma_new + (1-UR)*gamma #Applying under relaxation
         it+=1
 
     return results
 
 
 class WT_Result(object):
+    """
+      Empty class for storing results
+
+    """
     def __init__(self,name):
         self.a = 0
         self.ap = 0

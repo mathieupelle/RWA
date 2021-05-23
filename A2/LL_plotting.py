@@ -21,6 +21,7 @@ def plot_radial(LL, BEM, rotor):
     LL = LL[0] #CHANGE
     models = ['LL', 'BEMT']
     var=['alpha','phi','a','ap','f_tan','f_nor','circulation']
+   # var=['circulation']
     labels=[r'$\alpha$ [deg]','$\phi$ [deg]', 'a [-]','$a^,[-]$', '$C_t$ [-]', '$C_n$ [-]','$\Gamma$ [-]']
     for i in range(len(var)):
         plt.figure()
@@ -30,8 +31,9 @@ def plot_radial(LL, BEM, rotor):
         for j in range(2):
             if j==0:
                 dic = LL
-                idx1 = 0
-                idx2 = int(len(LL.mu)/rotor.n_blades)
+                blade = 0
+                idx1 = blade*(len(rotor.mu)-1)
+                idx2 = idx1 + len(rotor.mu) -1
             else:
                 dic = BEM
                 idx1 = 0
@@ -70,4 +72,4 @@ def performance_coefs(LL, BEM, rotor):
         CT += np.dot(f_nor, dr)/(0.5*rotor.wind_speed**2*m.pi*rotor.radius**2)
         CP += np.dot(dr, f_tan*mu*rotor.radius)*rotor.omega/(0.5*rotor.wind_speed**3*m.pi*rotor.radius**2)
     print('BEMT CT = ' + str(BEM.CT), 'LL CT = ' + str(CT))
-    print('BEMT CP = ' + str(BEM.CP), 'LL CT = ' + str(CP))
+    print('BEMT CP = ' + str(BEM.CP), 'LL CP = ' + str(CP))
