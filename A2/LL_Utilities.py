@@ -317,8 +317,14 @@ def LiftingLine(rotors,geometry,result_BEM):
     [u_ind_mat, v_ind_mat, w_ind_mat,idx_lst] = InducedVelocities(geometry)
 
     #Arranging BEM  circulation results to fit required format (N blades, M rotors)
-    array = np.append(result_BEM.circulation,result_BEM.circulation)
-    gamma = np.append(array,result_BEM.circulation)
+
+    lst = result_BEM.circulation[:,0].tolist()
+    gamma = []
+    for i in range(len(rotors)):
+        for j in range(rotors[i].n_blades):
+            gamma.extend(lst)
+
+    gamma = np.array(gamma)
     #gamma = np.zeros((len(u_ind_mat[:,0])))
 
     D_lst = geometry.D_lst #z distance list
