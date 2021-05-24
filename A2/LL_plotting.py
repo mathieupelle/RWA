@@ -37,7 +37,7 @@ def plot_radial(LL, BEM, rotor):
             else:
                 dic = BEM
                 idx1 = 0
-                idx2 = -1
+                idx2 = len(dic.mu)
             if var[i]=='f_tan' or var[i]=='f_nor':
                 Z=getattr(dic, str(var[i]))/(0.5*rotor.wind_speed**2*rotor.radius)
             elif var[i]=='circulation':

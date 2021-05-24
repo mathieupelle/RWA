@@ -25,7 +25,7 @@ def BEMT_execute(N,spacing,wind_speed,TSR):
         Optimal_geo = Optimizer(Rotor_org, a_opt, TSR = 8)
 
         #Creat a rotor class with that geometry
-        Rotor_opt = Rotor(N,'cos', Optimized_geometry=Optimal_geo)
+        Rotor_opt = Rotor(N,spacing, Optimized_geometry=Optimal_geo)
 
         #Solve the BEMT with this rotor
         BEMT_opt = BEMT(Rotor_opt)
@@ -109,7 +109,7 @@ class Rotor:
 
     self.SetOperationalData(wind_speed=10, TSR=8, yaw=0) #Assign default values to operational conditions
 
-  def SetOperationalData(self,wind_speed,TSR,yaw,rho=1.225):
+  def SetOperationalData(self,wind_speed,TSR,yaw,rho=1):
     """
       Operational data associated to the rotor
 
