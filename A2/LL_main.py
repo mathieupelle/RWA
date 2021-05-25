@@ -13,25 +13,36 @@ from LL_plotting import plot_radial, performance_coefs, plot_radial_2R, performa
 #%% Single rotor case
 
 #Define common parameters between BEM and LL
-N_radial = 25
+N_radial = 35
 spacing = 'cos'
-TSR = 8
+TSR = [6,8,10]
 U_inf = 10
+results_LL = []
+results_BEM = []
+rotors = []
+for i in range(len(TSR)):
+    #Call for BEM geometry and results
+    rotor_opt, result_BEM = BEMT_execute(N_radial,spacing,U_inf,TSR[i])
+    rotors.append(rotor_opt)
+    results_BEM.append(result_BEM)
 
-#Call for BEM geometry and results
-rotor_opt, result_BEM = BEMT_execute(N_radial,spacing,U_inf,TSR)
+    #Call for Lifting Line geometry and results
 
-#Call for Lifting Line geometry and results
+    # Lists of: rotor geometries, No. of Radial Elements, No. of Rotations, Rotor positions
+    geometry = VortexGeometry([rotor_opt], [5], [0], result_BEM)
 
-# Lists of: rotor geometries, No. of Radial Elements, No. of Rotations, Rotor positions
-geometry = VortexGeometry([rotor_opt], [2], [0], result_BEM)
+    # List of rotors, combined geometry and BEM results
+    result_LL = LiftingLine([rotor_opt],geometry,result_BEM)
+    results_LL.append(result_LL)
 
-#List of rotors, combined geometry and BEM results
-results_LL = LiftingLine([rotor_opt],geometry,result_BEM)
+    # Coefficients
+    print('=====TSR '+str(TSR[i])+'=====')
+    performance_coefs(result_LL, result_BEM, rotor_opt)
 
-# PLotting and results
-plot_radial(results_LL, result_BEM, rotor_opt)
-performance_coefs(results_LL, result_BEM, rotor_opt)
+
+# PLots
+plot_radial(results_LL, results_BEM, rotors, TSR)
+
 
 #%% Double rotor case
 

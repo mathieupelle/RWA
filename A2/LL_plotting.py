@@ -17,39 +17,44 @@ plt.rc('font', family='serif')
 save=False # Save or not
 
 
-def plot_radial(LL, BEM, rotor):
-    LL = LL[0] #CHANGE
-    models = ['LL', 'BEMT']
+def plot_radial(result_LL, result_BEM, rotors, TSR):
+    #models = ['BEMT', 'LL']
     var=['alpha','phi','a','ap','f_tan','f_nor','circulation']
-   # var=['circulation']
     labels=[r'$\alpha$ [deg]','$\phi$ [deg]', 'a [-]','$a^,[-]$', '$C_t$ [-]', '$C_n$ [-]','$\Gamma$ [-]']
+    colours = ['deepskyblue', 'firebrick', 'mediumpurple']
     for i in range(len(var)):
         plt.figure()
         plt.grid()
         plt.xlabel(r'Radius $\frac{r}{R}$ [-]')
         plt.ylabel(labels[i])
-        for j in range(2):
-            if j==0:
-                dic = LL
-                blade = 0
-                idx1 = blade*(len(rotor.mu)-1)
-                idx2 = idx1 + len(rotor.mu) -1
-            else:
-                dic = BEM
-                idx1 = 0
-                idx2 = len(dic.mu)
-            if var[i]=='f_tan' or var[i]=='f_nor':
-                Z=getattr(dic, str(var[i]))/(0.5*rotor.wind_speed**2*rotor.radius)
-            elif var[i]=='circulation':
-                Z=getattr(dic, str(var[i]))/((m.pi*rotor.wind_speed**2/(rotor.n_blades*rotor.omega)))
-            else:
-                Z=getattr(dic, str(var[i]))
+        for l in range(len(result_LL)):
+            LL = result_LL[l][0]
+            BEM = result_BEM[l]
+            rotor = rotors[l]
+            for j in range(2):
+                if j==0:
+                    dic = BEM
+                    idx1 = 0
+                    idx2 = len(dic.mu)
+                else:
+                    dic = LL
+                    blade = 0
+                    idx1 = blade*(len(rotor.mu)-1)
+                    idx2 = idx1 + len(rotor.mu) -1
+                if var[i]=='f_tan' or var[i]=='f_nor':
+                    Z=getattr(dic, str(var[i]))/(0.5*rotor.wind_speed**2*rotor.radius)
+                elif var[i]=='circulation':
+                    Z=getattr(dic, str(var[i]))/((m.pi*rotor.wind_speed**2/(rotor.n_blades*rotor.omega)))
+                else:
+                    Z=getattr(dic, str(var[i]))
 
-            plt.plot(dic.mu[idx1:idx2], Z[idx1:idx2], label = models[j])
-
-            plt.legend()
-            if save==True:
-                plt.savefig('figures/TSR_'+str(var[i])+'.pdf')
+                if j==0:
+                    plt.plot(dic.mu[idx1:idx2], Z[idx1:idx2],'--', color=colours[l])
+                else:
+                    plt.plot(dic.mu[idx1:idx2], Z[idx1:idx2], label = '$\lambda$='+str(TSR[l]), color=colours[l])
+                plt.legend()
+                if save==True:
+                    plt.savefig('figures/TSR_'+str(var[i])+'.pdf')
 
 
 
