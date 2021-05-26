@@ -169,7 +169,7 @@ class VortexGeometry:
     def geometry_interp(r, rotor):
         c = np.interp(r/rotor.radius, rotor.mu, rotor.chord)
         theta = np.deg2rad(np.interp(r/rotor.radius, rotor.mu, rotor.beta) + rotor.theta)
-        return c, theta
+        return c, -theta
 
     def polar_interp(alpha, rotor):
         cl = np.interp(alpha,np.array(rotor.polars['alpha']),np.array(rotor.polars['Cl']))
@@ -312,7 +312,6 @@ def LiftingLine(rotors,geometry,result_BEM):
       results : Class with all relevant results
 
     """
-
     #Induced velocity matrices
     [u_ind_mat, v_ind_mat, w_ind_mat,idx_lst] = InducedVelocities(geometry)
 
@@ -339,8 +338,8 @@ def LiftingLine(rotors,geometry,result_BEM):
     it = 0
     it_max = 1000 #Max iteration number
     error = 1e12
-    limit = 1e-6 #Error convergence criteria
-    UR = 0.2 #Under relaxation factor
+    limit = 1e-8 #Error convergence criteria
+    UR = 0.1 #Under relaxation factor
     while it<it_max and error>limit:
         if it == it_max - 1:
             print('Max. iterations reached')
@@ -373,6 +372,8 @@ def LiftingLine(rotors,geometry,result_BEM):
             F_az = np.zeros((N_pts))
             phi = np.zeros((N_pts))
             alpha = np.zeros((N_pts))
+            V_ax = np.zeros((N_pts))
+            V_az = np.zeros((N_pts))
             gamma_new_wt = np.zeros((N_pts))
 
             # For every radial position
@@ -385,19 +386,22 @@ def LiftingLine(rotors,geometry,result_BEM):
                 # Velocity vector
                 V = [V_inf[0] + u[i] + omega_vec[0], V_inf[1] + v[i] + omega_vec[1], V_inf[2] + w[i] + omega_vec[2]]
                 azim_vec = np.cross([-1/r,0,0],coords) #Azimuthal vector
-                V_az = np.dot(azim_vec,V) #Azimuthal velocity
+                V_az[i] = np.dot(azim_vec,V) #Azimuthal velocity
                 axial_vec = [1,0,0] #Axial vector
-                V_ax = np.dot(axial_vec,V) #Axial velocity
+                V_ax[i] = np.dot(axial_vec,V) #Axial velocity
 
                 # BEM equations
                 #a[i] = -(u[i] + omega_vec[0])/V_inf[0]
-                a[i] = 1-V_ax/V_inf[0] #Axial induction
-                at[i] = V_az/(omega*r)-1 #Azimuthal induction
-                V_mag = m.sqrt(V_ax**2+V_az**2) #Velocity magnitude
-                phi[i] = m.atan(V_ax/V_az) #Flow angle
+                a[i] = 1-V_ax[i]/V_inf[0] #Axial induction
+                at[i] = V_az[i]/(omega*r)-1 #Azimuthal induction
+                V_mag = m.sqrt(V_ax[i]**2+V_az[i]**2) #Velocity magnitude
+                phi[i] = m.atan(V_ax[i]/V_az[i]) #Flow angle
                 [c, theta] = VortexGeometry.geometry_interp(r, rotor)
-                alpha[i] = np.rad2deg(phi[i] - theta) #Angle of attack
+                alpha[i] = np.rad2deg(phi[i] + theta) #Angle of attack
                 [Cl,Cd] =  VortexGeometry.polar_interp(alpha[i], rotor) #Lift and drag coefficients
+
+                # if alpha[i]>10:
+                #     print(alpha[i],phi[i],V_ax, V_az, V, r)
 
                 L = 0.5*V_mag**2*Cl*c #Lift
                 D = 0.5*V_mag**2*Cd*c #Drag
@@ -405,6 +409,8 @@ def LiftingLine(rotors,geometry,result_BEM):
                 F_ax[i] = L*m.cos(phi[i])+D*m.sin(phi[i]) #Axial force
                 F_az[i] = L*m.sin(phi[i])-D*m.cos(phi[i]) #Azimuthal force
                 gamma_new_wt[i] = 0.5*V_mag*Cl*c #Updated circulation
+                if gamma_new_wt[i]<0:
+                    gamma_new_wt[i]=0
                 gamma_new.append(gamma_new_wt[i]) #Stacking circulation to combine for all rotors
 
             # Storing all results
@@ -416,10 +422,13 @@ def LiftingLine(rotors,geometry,result_BEM):
             results[t].circulation = gamma_new_wt
             results[t].alpha = alpha
             results[t].phi = np.rad2deg(phi)
+            results[t].V_ax = V_ax
+            results[t].V_az = V_az
+            results[t].error = error
 
         # Cimputing error between new and old circulation values
         gamma_new = np.array(gamma_new)
-        error=np.linalg.norm(gamma_new - gamma)
+        error=max(abs(gamma_new - gamma))
 
         ## Carlos' (weird) way to control the iteration
         # referror=max(abs(gamma_new))
@@ -448,6 +457,9 @@ class WT_Result(object):
         self.f_tan = 0
         self.mu = 0
         self.circulation = 0
+        self.V_ax = 0
+        self.V_az = 0
+        self.error = 0
 
 
 
