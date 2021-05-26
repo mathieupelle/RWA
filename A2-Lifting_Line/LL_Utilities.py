@@ -169,7 +169,7 @@ class VortexGeometry:
     def geometry_interp(r, rotor):
         c = np.interp(r/rotor.radius, rotor.mu, rotor.chord)
         theta = np.deg2rad(np.interp(r/rotor.radius, rotor.mu, rotor.beta) + rotor.theta)
-        return c, theta
+        return c, -theta
 
     def polar_interp(alpha, rotor):
         cl = np.interp(alpha,np.array(rotor.polars['alpha']),np.array(rotor.polars['Cl']))
@@ -312,7 +312,6 @@ def LiftingLine(rotors,geometry,result_BEM):
       results : Class with all relevant results
 
     """
-
     #Induced velocity matrices
     [u_ind_mat, v_ind_mat, w_ind_mat,idx_lst] = InducedVelocities(geometry)
 
@@ -398,7 +397,7 @@ def LiftingLine(rotors,geometry,result_BEM):
                 V_mag = m.sqrt(V_ax[i]**2+V_az[i]**2) #Velocity magnitude
                 phi[i] = m.atan(V_ax[i]/V_az[i]) #Flow angle
                 [c, theta] = VortexGeometry.geometry_interp(r, rotor)
-                alpha[i] = np.rad2deg(phi[i] - theta) #Angle of attack
+                alpha[i] = np.rad2deg(phi[i] + theta) #Angle of attack
                 [Cl,Cd] =  VortexGeometry.polar_interp(alpha[i], rotor) #Lift and drag coefficients
 
                 # if alpha[i]>10:

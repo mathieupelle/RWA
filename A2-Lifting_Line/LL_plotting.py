@@ -8,7 +8,8 @@ Created on Wed May 19 16:24:49 2021
 import matplotlib.pyplot as plt
 import math as m
 import numpy as np
-
+# import logging
+# logging.getLogger().setLevel(logging.CRITICAL)
 
 x = 6  # Want figures to be A6
 plt.rc('figure', figsize=[46.82 * .5**(.5 * x), 33.11 * .5**(.5 * x)]   )
