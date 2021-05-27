@@ -125,11 +125,12 @@ def plot_radial_2R(LL_2R, LL, rotor, blades_all):
 
             plt.legend()
             if save==True:
-                plt.savefig('figures/TSR_'+str(var[i])+'.pdf')
+                plt.savefig('figures/2R_'+str(var[i])+'.pdf')
 
 
 def performance_coefs_2R(LL_2R, LL, BEM, rotor):
-
+    CT_lst = []
+    CP_lst = []
     for i in range(len(LL_2R)+1):
         if i==0:
             LL = LL[0]
@@ -153,5 +154,43 @@ def performance_coefs_2R(LL_2R, LL, BEM, rotor):
             print('LL 1R CT = ' + str(CT), 'LL 1R CP = ' + str(CP))
         else:
             print('LL 2R'+str(i)+' CT = ' + str(CT), 'LL 2R'+str(i)+' CP = ' + str(CP))
-
+        CT_lst.append(CT)
+        CP_lst.append(CP)
     print('BEMT CT = ' + str(BEM.CT), 'BEMT CP = ' + str(BEM.CP))
+
+    return CT_lst, CP_lst
+
+def plot_difference_2R(x, CT_lst, CP_lst, var):
+    if var=='phase':
+        xlab = 'Phase difference [deg]'
+    else:
+        xlab = 'Distance [m]'
+
+    plt.figure()
+    plt.plot(x, CT_lst[0], label='Single Rotor')
+    plt.plot(x, CT_lst[1], label='Rotor 1')
+    plt.plot(x, CT_lst[2], label='Rotor 2')
+    plt.xlabel(xlab)
+    plt.ylabel('$C_T$ [-]')
+    plt.grid()
+    plt.legend()
+
+    plt.figure()
+    plt.plot(x, CP_lst[0], label='Single Rotor')
+    plt.plot(x, CP_lst[1], label='Rotor 1')
+    plt.plot(x, CP_lst[2], label='Rotor 2')
+    plt.xlabel(xlab)
+    plt.ylabel('$C_P$ [-]')
+    plt.grid()
+    plt.legend()
+
+    plt.figure()
+    plt.plot(x, np.array(CT_lst[1])-np.array(CT_lst[2]), label='$\Delta C_T$ ')
+    plt.plot(x, np.array(CP_lst[1])-np.array(CP_lst[2]), label='$\Delta C_P$')
+    plt.xlabel(xlab)
+    plt.ylabel('$C_P$/$C_T$ [-]')
+    plt.grid()
+    plt.legend()
+
+    if save==True:
+        plt.savefig('figures/phase3.pdf')
