@@ -11,7 +11,7 @@ import math as m
 
 
 class VortexGeometry:
-    def __init__(self, rotors, NumberofRotations, RotorLocations, result_BEM, phaseshift = None):
+    def __init__(self, rotors, NumberofRotations, RotorLocations, result_BEM):
         """
           Class that defines the entire vortex system with filaments and control points
 
@@ -59,9 +59,6 @@ class VortexGeometry:
             for b in range(N_blades):
                 theta_r = 2*m.pi*b/N_blades #Rotation angle for coordinate transform
 
-                if phaseshift and t!=0:
-                    theta_r = theta_r + np.deg2rad(phaseshift)
-
                 #For each element
                 for i in range(N_rad-1):
                     fil = []
@@ -74,7 +71,7 @@ class VortexGeometry:
                     vec_n = VortexGeometry.Transform(vec_n, theta_r, D) #Transformed normal vector
                     vec_t = [-m.sin(theta),0,-m.cos(theta)]
                     vec_t = VortexGeometry.Transform(vec_t, theta_r, D) #Transformed tangential vector
-                    pts_lst.append({'coords': VortexGeometry.Transform([0,r,0],theta_r,D), 'chord': c, 'normal': vec_n, 'tangent': vec_t})
+                    pts_lst.append({'coords': VortexGeometry.Transform([c/2,r,0],theta_r,D), 'chord': c, 'normal': vec_n, 'tangent': vec_t})
 
                     ## Horseshoe vortices ##
                     #VF1: filament in span direction at 0.25c
@@ -341,11 +338,12 @@ def LiftingLine(rotors,geometry,result_BEM):
     it = 0
     it_max = 1000 #Max iteration number
     error = 1e12
-    limit = 1e-4 #Error convergence criteria
-    UR = 0.1 #Under relaxation factor
+    limit = 1e-2 #Error convergence criteria
+    UR = 0.3 #Under relaxation factor
     while it<it_max and error>limit:
+        print(it, error)
         if it == it_max - 1:
-            print('Max. iterations reached, error= '+str(error))
+            print('Max. iterations reached')
 
         # Multiplying induced velocity matrix with circulation
         u_all = (u_ind_mat*gamma).sum(axis=1)
@@ -377,11 +375,13 @@ def LiftingLine(rotors,geometry,result_BEM):
             alpha = np.zeros((N_pts))
             V_ax = np.zeros((N_pts))
             V_az = np.zeros((N_pts))
+            V_n = np.zeros((N_pts))
             gamma_new_wt = np.zeros((N_pts))
 
             # For every radial position
             for i in range(N_pts):
                 ctrl_pt = rotor_geo['blades']['control_pts'][i]['coords'] #Control point coordinates
+                vec_n = rotor_geo['blades']['control_pts'][i]['normal'] #Normal vector
                 coords = [ctrl_pt[0], ctrl_pt[1], ctrl_pt[2]- D_lst[t]] #Correcting coordinate to local rotor axis
                 r = r_lst[i] #Radius at control point
                 omega_vec = np.cross([-omega,0,0],coords) #Rotational velocity at point
@@ -392,7 +392,7 @@ def LiftingLine(rotors,geometry,result_BEM):
                 V_az[i] = np.dot(azim_vec,V) #Azimuthal velocity
                 axial_vec = [1,0,0] #Axial vector
                 V_ax[i] = np.dot(axial_vec,V) #Axial velocity
-
+                V_n[i] = np.dot(vec_n,V)
                 # BEM equations
                 #a[i] = -(u[i] + omega_vec[0])/V_inf[0]
                 a[i] = 1-V_ax[i]/V_inf[0] #Axial induction
@@ -412,8 +412,8 @@ def LiftingLine(rotors,geometry,result_BEM):
                 F_ax[i] = L*m.cos(phi[i])+D*m.sin(phi[i]) #Axial force
                 F_az[i] = L*m.sin(phi[i])-D*m.cos(phi[i]) #Azimuthal force
                 gamma_new_wt[i] = 0.5*V_mag*Cl*c #Updated circulation
-                # if gamma_new_wt[i]<0:
-                #     gamma_new_wt[i]=0
+                if gamma_new_wt[i]<0:
+                    gamma_new_wt[i]=0
                 gamma_new.append(gamma_new_wt[i]) #Stacking circulation to combine for all rotors
 
             # Storing all results
@@ -431,16 +431,10 @@ def LiftingLine(rotors,geometry,result_BEM):
 
         # Cimputing error between new and old circulation values
         gamma_new = np.array(gamma_new)
-        error=max(abs(gamma_new - gamma))
+        gamma = UR*gamma_new + (1-UR)*gamma
 
-        ## Carlos' (weird) way to control the iteration
-        # referror=max(abs(gamma_new))
-        # referror=max(referror,0.001)
-        # error=max(abs(gamma_new-gamma))
-        # error = error/referror
-        # UR = max((1-error)*0.3,0.1)
+        error = max(abs(V_n))
 
-        gamma = UR*gamma_new + (1-UR)*gamma #Applying under relaxation
         it+=1
 
     return results
@@ -464,8 +458,40 @@ class WT_Result(object):
         self.V_az = 0
         self.error = 0
 
+#%%
+
+from BEMT_Utilities import BEMT_execute
+from LL_plotting import plot_radial, performance_coefs, plot_radial_2R, performance_coefs_2R
+
+N_radial = 20
+spacing = 'cos'
+TSR = [8]
+U_inf = 10
+results_LL = []
+results_BEM = []
+rotors = []
+for i in range(len(TSR)):
+    #Call for BEM geometry and results
+    rotor_opt, result_BEM = BEMT_execute(N_radial,spacing,U_inf,TSR[i])
+    rotors.append(rotor_opt)
+    results_BEM.append(result_BEM)
+
+    #Call for Lifting Line geometry and results
+
+    # Lists of: rotor geometries, No. of Radial Elements, No. of Rotations, Rotor positions
+    geometry = VortexGeometry([rotor_opt], [5], [0], result_BEM)
+
+    # List of rotors, combined geometry and BEM results
+    result_LL = LiftingLine([rotor_opt],geometry,result_BEM)
+    results_LL.append(result_LL)
+
+    # Coefficients
+    print('=====TSR '+str(TSR[i])+'=====')
+    performance_coefs(result_LL, result_BEM, rotor_opt)
 
 
+# PLots
+plot_radial(results_LL, results_BEM, rotors, TSR)
 
 
 

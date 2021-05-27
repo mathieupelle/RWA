@@ -11,7 +11,7 @@ import math as m
 
 
 class VortexGeometry:
-    def __init__(self, rotors, NumberofRotations, RotorLocations, result_BEM, phaseshift = None):
+    def __init__(self, rotors, NumberofRotations, RotorLocations, result_BEM):
         """
           Class that defines the entire vortex system with filaments and control points
 
@@ -34,7 +34,7 @@ class VortexGeometry:
         for t in range(N_WT):
 
             # Empty dictionnay for storing data
-            self.WT_lst['WT'+str(t+1)] = {'r_lst':[], 'psi_lst':[],
+            self.WT_lst['WT'+str(t+1)] = {'r_lst':[], 'psi_lst':[],'s_lst':[],
                                           'N_pts':0, 'N_hs':0, 'N_rot':0, 'N_rad':0,
                                           'blades':{'control_pts':[], 'HS_vortex':[], 'panels':[]}}
 
@@ -47,7 +47,7 @@ class VortexGeometry:
             D = self.D_lst[t] #Z shift of rotor center
             s_lst = rotor.mu*rotor.radius #Array of radial positions
             N_rot = NumberofRotations[t] # Number of rotations
-            psi_lst = np.linspace(0,2*m.pi*N_rot,2*N_rot*30+1) #Arrray of discretised rotation
+            psi_lst = np.linspace(0,2*m.pi*N_rot,2*N_rot*10+1) #Arrray of discretised rotation
 
             #Emptry lists to store geometry parameters
             pts_lst = []
@@ -58,9 +58,6 @@ class VortexGeometry:
             #For each blade
             for b in range(N_blades):
                 theta_r = 2*m.pi*b/N_blades #Rotation angle for coordinate transform
-
-                if phaseshift and t!=0:
-                    theta_r = theta_r + np.deg2rad(phaseshift)
 
                 #For each element
                 for i in range(N_rad-1):
@@ -141,6 +138,7 @@ class VortexGeometry:
             #Storing all data
             self.WT_lst['WT'+str(t+1)]['r_lst'] = r_lst
             self.WT_lst['WT'+str(t+1)]['psi_lst'] = psi_lst
+            self.WT_lst['WT'+str(t+1)]['s_lst'] = s_lst
             self.WT_lst['WT'+str(t+1)]['N_pts'] = len(pts_lst)
             self.WT_lst['WT'+str(t+1)]['N_hs'] = len(hs_lst)
             self.WT_lst['WT'+str(t+1)]['N_rot'] = N_rot
@@ -297,7 +295,84 @@ def InducedVelocities(geometry):
     return u_ind_mat, v_ind_mat, w_ind_mat, idx_lst
 
 
+def geometry_update(geometry, rotor, a):
+    WTs = geometry.WT_lst
+    N_WT = len(WTs)
+    # Looping for every wind turbine
+    for t in range(N_WT):
+        WT = WTs['WT'+str(t+1)]
+        N_blades = 3
+        N_rad = WT['N_rad']
+        s_lst = WT['s_lst']
+        psi_lst = WT['psi_lst']
+        TSR = rotor.TSR
+        R = rotor.radius
+        D = geometry.D_lst[t]
+        #Emptry lists to store geometry parameters
+        hs_lst = []
+        #For each blade
+        for b in range(N_blades):
+            theta_r = 2*m.pi*b/N_blades #Rotation angle for coordinate transform
 
+            #For each element
+            for i in range(N_rad-1):
+                fil = []
+
+                ## Horseshoe vortices ##
+                #VF1: filament in span direction at 0.25c
+                VF = {'pos1':[0,s_lst[i],0], 'pos2':[0,s_lst[i+1],0], 'Gamma':1}
+                fil.append(VF)
+
+                #VF2: filament in upstream direction at 1st radial element position
+                [c, theta] = VortexGeometry.geometry_interp(s_lst[i], rotor)
+                VF = {'pos1':[c*m.sin(-theta),s_lst[i],-c*m.cos(theta)], 'pos2':[0,s_lst[i],0], 'Gamma':1}
+                fil.append(VF)
+
+                #All filaments downstream of VF2 up to limit defined by number of rotations
+                for j in range(len(psi_lst)-1):
+                    # 1st point (downstream)
+                    x = fil[-1]['pos1'][0]
+                    y = fil[-1]['pos1'][1]
+                    z = fil[-1]['pos1'][2]
+
+                    # 2nd point (upstream)
+                    #a_temp = 1/3 # Average wake velocity
+                    dx = (psi_lst[j+1]-psi_lst[j])/TSR*R*(1-a[i])
+                    dy = (m.cos(-psi_lst[j+1])-m.cos(-psi_lst[j]))*s_lst[i]
+                    dz = (m.sin(-psi_lst[j+1])-m.sin(-psi_lst[j]))*s_lst[i]
+                    VF = {'pos1':[x+dx,y+dy,z+dz], 'pos2':[x,y,z], 'Gamma':1}
+                    fil.append(VF)
+
+                #VF3: filament in downstream direction at 2nd radial element position
+                [c, theta] = VortexGeometry.geometry_interp(s_lst[i+1], rotor)
+                VF = {'pos1':[0,s_lst[i+1],0], 'pos2':[c*m.sin(-theta),s_lst[i+1],-c*m.cos(theta)], 'Gamma':1}
+                fil.append(VF)
+                #All filaments downstream of VF3 up to limit defined by number of rotations
+                for j in range(len(psi_lst)-1):
+                    # 1st point (upstream)
+                    x = fil[-1]['pos2'][0]
+                    y = fil[-1]['pos2'][1]
+                    z = fil[-1]['pos2'][2]
+
+                    # 2nd point (downstream)
+                    #a_temp = 1/3
+                    dx = (psi_lst[j+1]-psi_lst[j])/TSR*R*(1-a[i])
+                    dy = (m.cos(-psi_lst[j+1])-m.cos(-psi_lst[j]))*s_lst[i+1]
+                    dz = (m.sin(-psi_lst[j+1])-m.sin(-psi_lst[j]))*s_lst[i+1]
+                    VF = {'pos1':[x,y,z], 'pos2':[x+dx,y+dy,z+dz], 'Gamma':1}
+                    fil.append(VF)
+
+                #Transforming all filaments coordinates
+                for j in range(len(fil)):
+                    fil[j]['pos1'] = VortexGeometry.Transform(fil[j]['pos1'], theta_r, D)
+                    fil[j]['pos2'] = VortexGeometry.Transform(fil[j]['pos2'], theta_r, D)
+
+
+                hs_lst.append(fil)
+
+        #Storing all data
+        geometry.WT_lst['WT'+str(t+1)]['blades']['HS_vortex'] = hs_lst
+    return geometry
 
 
 def LiftingLine(rotors,geometry,result_BEM):
@@ -339,13 +414,17 @@ def LiftingLine(rotors,geometry,result_BEM):
     ## Lifting line iterative loop ##
     #Iteration controls
     it = 0
-    it_max = 1000 #Max iteration number
+    it_max = 100 #Max iteration number
     error = 1e12
-    limit = 1e-4 #Error convergence criteria
-    UR = 0.1 #Under relaxation factor
+    limit = 0.01 #Error convergence criteria
+    UR = 0.3 #Under relaxation factor
     while it<it_max and error>limit:
+        print(it, error)
         if it == it_max - 1:
-            print('Max. iterations reached, error= '+str(error))
+            print('Max. iterations reached')
+
+        #Induced velocity matrices
+        [u_ind_mat, v_ind_mat, w_ind_mat,idx_lst] = InducedVelocities(geometry)
 
         # Multiplying induced velocity matrix with circulation
         u_all = (u_ind_mat*gamma).sum(axis=1)
@@ -412,8 +491,8 @@ def LiftingLine(rotors,geometry,result_BEM):
                 F_ax[i] = L*m.cos(phi[i])+D*m.sin(phi[i]) #Axial force
                 F_az[i] = L*m.sin(phi[i])-D*m.cos(phi[i]) #Azimuthal force
                 gamma_new_wt[i] = 0.5*V_mag*Cl*c #Updated circulation
-                # if gamma_new_wt[i]<0:
-                #     gamma_new_wt[i]=0
+                if gamma_new_wt[i]<0:
+                    gamma_new_wt[i]=0
                 gamma_new.append(gamma_new_wt[i]) #Stacking circulation to combine for all rotors
 
             # Storing all results
@@ -441,6 +520,8 @@ def LiftingLine(rotors,geometry,result_BEM):
         # UR = max((1-error)*0.3,0.1)
 
         gamma = UR*gamma_new + (1-UR)*gamma #Applying under relaxation
+        geometry = geometry_update(geometry, rotor_opt, a)
+
         it+=1
 
     return results
@@ -470,3 +551,29 @@ class WT_Result(object):
 
 
 
+
+#%%
+
+from BEMT_Utilities import BEMT_execute
+from LL_plotting import plot_radial, performance_coefs, plot_radial_2R, performance_coefs_2R
+
+N_radial = 20
+spacing = 'cos'
+TSR = 8
+U_inf = 10
+
+
+#Call for BEM geometry and results
+rotor_opt, result_BEM = BEMT_execute(N_radial,spacing,U_inf,TSR)
+
+
+# Lists of: rotor geometries, No. of Radial Elements, No. of Rotations, Rotor positions
+geometry = VortexGeometry([rotor_opt], [2], [0], result_BEM)
+
+# List of rotors, combined geometry and BEM results
+result_LL = LiftingLine([rotor_opt],geometry,result_BEM)
+
+performance_coefs(result_LL, result_BEM, rotor_opt)
+
+# PLots
+plot_radial([result_LL], [result_BEM], [rotor_opt], [TSR])
