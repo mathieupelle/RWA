@@ -17,7 +17,7 @@ plt.rc('font', family='serif')
 
 save=False # Save or not
 
-
+#Radial plots for single rotor and multiple TSRs
 def plot_radial(result_LL, result_BEM, rotors, TSR):
     #models = ['BEMT', 'LL']
     var=['alpha','phi','a','ap','f_tan','f_nor','circulation']
@@ -59,7 +59,7 @@ def plot_radial(result_LL, result_BEM, rotors, TSR):
 
 
 
-
+#Performance coefficients (CT/CP) for single rotor
 def performance_coefs(LL, BEM, rotor):
 
     LL = LL[0]
@@ -81,7 +81,7 @@ def performance_coefs(LL, BEM, rotor):
     print('BEMT CP = ' + str(BEM.CP), 'LL CP = ' + str(CP))
 
 
-
+#Radial plots for double rotor and comparing to single rotor
 def plot_radial_2R(LL_2R, LL, rotor, blades_all):
 
     var=['alpha','phi','a','ap','f_tan','f_nor','circulation']
@@ -127,7 +127,7 @@ def plot_radial_2R(LL_2R, LL, rotor, blades_all):
             if save==True:
                 plt.savefig('figures/2R_'+str(var[i])+'.pdf')
 
-
+#Performance coefficients (CT/CP) for double rotor and comparing to single rotor
 def performance_coefs_2R(LL_2R, LL, BEM, rotor):
     CT_lst = []
     CP_lst = []
@@ -160,37 +160,90 @@ def performance_coefs_2R(LL_2R, LL, BEM, rotor):
 
     return CT_lst, CP_lst
 
+#CP/CT vs phase or distance
 def plot_difference_2R(x, CT_lst, CP_lst, var):
     if var=='phase':
         xlab = 'Phase difference [deg]'
+
     else:
         xlab = 'Distance [m]'
 
-    plt.figure()
-    plt.plot(x, CT_lst[0], label='Single Rotor')
-    plt.plot(x, CT_lst[1], label='Rotor 1')
-    plt.plot(x, CT_lst[2], label='Rotor 2')
-    plt.xlabel(xlab)
-    plt.ylabel('$C_T$ [-]')
-    plt.grid()
-    plt.legend()
+    for i in range(2):
+        if i==0:
+            lst = CT_lst
+            ylab = '$\Delta C_T$ [%]'
+            name = 'CT'
+        else:
+            lst = CP_lst
+            ylab = '$\Delta C_P$ [%]'
+            name = 'CP'
 
-    plt.figure()
-    plt.plot(x, CP_lst[0], label='Single Rotor')
-    plt.plot(x, CP_lst[1], label='Rotor 1')
-    plt.plot(x, CP_lst[2], label='Rotor 2')
-    plt.xlabel(xlab)
-    plt.ylabel('$C_P$ [-]')
-    plt.grid()
-    plt.legend()
+        ref = lst[0][0]
+        y1 = (lst[1]-ref)/ref*100
+        y2 = (lst[2]-ref)/ref*100
+        plt.figure()
+        plt.plot(x, y1, label='Rotor 1')
+        plt.plot(x, y2, label='Rotor 2')
+        plt.xlabel(xlab)
+        plt.ylabel(ylab)
+        plt.grid()
+        plt.legend()
 
-    plt.figure()
-    plt.plot(x, np.array(CT_lst[1])-np.array(CT_lst[2]), label='$\Delta C_T$ ')
-    plt.plot(x, np.array(CP_lst[1])-np.array(CP_lst[2]), label='$\Delta C_P$')
-    plt.xlabel(xlab)
-    plt.ylabel('$C_P$/$C_T$ [-]')
-    plt.grid()
-    plt.legend()
+        if save==True:
+            plt.savefig('figures/'+str(var)+str(name)+'.pdf')
 
-    if save==True:
-        plt.savefig('figures/phase3.pdf')
+#Radial plots for any blade or rotor for any phase
+def plot_radial_2R_phase(LL_2Rs, LL, rotor, blades_all, phase_lst, phase, shift, line=None, colors=None):
+    var = ['circulation','alpha']
+    labels = ['$\Delta \Gamma$ [%]', '$\Delta$'+r'$\alpha$ [%]']
+    shift1 = shift[0]
+    shift2 = shift[1]
+    for i in range(len(var)):
+        plt.figure()
+        plt.grid()
+        plt.xlabel(r'Radius $\frac{r}{R}$ [-]')
+        plt.ylabel(labels[i])
+
+        for j in range(3):
+            if j==0:
+                dic = LL[0]
+                blade = 0
+                idx1 = blade*(len(rotor.mu)-1)
+                idx2 = idx1 + len(rotor.mu) -1
+                if var[i]=='f_tan' or var[i]=='f_nor':
+                    Z=getattr(dic, str(var[i]))/(0.5*rotor.wind_speed**2*rotor.radius)
+                elif var[i]=='circulation':
+                    Z=getattr(dic, str(var[i]))/((m.pi*rotor.wind_speed**2/(rotor.n_blades*rotor.omega)))
+                else:
+                    Z=getattr(dic, str(var[i]))
+                ref = Z
+                #plt.plot(dic.mu[idx1+shift1:idx2+shift2], Z[idx1+shift1:idx2+shift2], '--k', label = '1R')
+
+            else:
+                for p in range(len(phase_lst)):
+                    LL_2R = LL_2Rs[phase_lst[p]]
+                    dic = LL_2R[j-1]
+                    blades = blades_all[j-1]
+                    for k in range(len(blades)):
+                        b =  blades[k]
+                        idx1 = b*(len(rotor.mu)-1)
+                        idx2 = idx1 + len(rotor.mu) -1
+                        if var[i]=='f_tan' or var[i]=='f_nor':
+                            Z=getattr(dic, str(var[i]))/(0.5*rotor.wind_speed**2*rotor.radius)
+                        elif var[i]=='circulation':
+                            Z=getattr(dic, str(var[i]))/((m.pi*rotor.wind_speed**2/(rotor.n_blades*rotor.omega)))
+                        else:
+                            Z=getattr(dic, str(var[i]))
+                        Z = (Z-ref)/ref*100
+
+                        if line:
+                            name = 'phase_'+str(phase[phase_lst[p]])
+                            plt.plot(dic.mu[idx1+shift1:idx2+shift2], Z[idx1+shift1:idx2+shift2],line[j-1], label='R'+str(j)+' B'+str(b+1), color=colors[b])
+                        else:
+                            name = 'phase_all'
+                            plt.plot(dic.mu[idx1+shift1:idx2+shift2], Z[idx1+shift1:idx2+shift2], label='$\Delta \Phi$ = '+str(phase[phase_lst[p]])+'$\degree$')
+
+
+        plt.legend()
+        if save==True:
+            plt.savefig('figures/2R_'+name+'_'+str(var[i])+'.pdf')
