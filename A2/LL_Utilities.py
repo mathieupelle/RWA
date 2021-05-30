@@ -57,7 +57,7 @@ class VortexGeometry:
 
             #For each blade
             for b in range(N_blades):
-                theta_r = 2*m.pi*b/N_blades #Rotation angle for coordinate transform
+                theta_r = 2*m.pi*b/N_blades + m.pi/2 #Rotation angle for coordinate transform
 
                 if phaseshift and t!=0:
                     theta_r = theta_r + np.deg2rad(phaseshift)
@@ -341,7 +341,7 @@ def LiftingLine(rotors,geometry,result_BEM):
     it = 0
     it_max = 1000 #Max iteration number
     error = 1e12
-    limit = 1e-4 #Error convergence criteria
+    limit = 1e-8 #Error convergence criteria
     UR = 0.1 #Under relaxation factor
     while it<it_max and error>limit:
         if it == it_max - 1:
@@ -403,8 +403,6 @@ def LiftingLine(rotors,geometry,result_BEM):
                 alpha[i] = np.rad2deg(phi[i] + theta) #Angle of attack
                 [Cl,Cd] =  VortexGeometry.polar_interp(alpha[i], rotor) #Lift and drag coefficients
 
-                # if alpha[i]>10:
-                #     print(alpha[i],phi[i],V_ax, V_az, V, r)
 
                 L = 0.5*V_mag**2*Cl*c #Lift
                 D = 0.5*V_mag**2*Cd*c #Drag
@@ -412,8 +410,8 @@ def LiftingLine(rotors,geometry,result_BEM):
                 F_ax[i] = L*m.cos(phi[i])+D*m.sin(phi[i]) #Axial force
                 F_az[i] = L*m.sin(phi[i])-D*m.cos(phi[i]) #Azimuthal force
                 gamma_new_wt[i] = 0.5*V_mag*Cl*c #Updated circulation
-                # if gamma_new_wt[i]<0:
-                #     gamma_new_wt[i]=0
+                if gamma_new_wt[i]<0:
+                    gamma_new_wt[i]=0
                 gamma_new.append(gamma_new_wt[i]) #Stacking circulation to combine for all rotors
 
             # Storing all results
