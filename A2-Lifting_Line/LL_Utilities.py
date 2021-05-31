@@ -336,6 +336,7 @@ def LiftingLine(rotors,geometry,result_BEM):
     for i in range(len(rotors)):
         results.append(WT_Result(i))
 
+    error_lst = []
     ## Lifting line iterative loop ##
     #Iteration controls
     it = 0
@@ -425,11 +426,12 @@ def LiftingLine(rotors,geometry,result_BEM):
             results[t].phi = np.rad2deg(phi)
             results[t].V_ax = V_ax
             results[t].V_az = V_az
-            results[t].error = error
+
 
         # Cimputing error between new and old circulation values
         gamma_new = np.array(gamma_new)
         error=max(abs(gamma_new - gamma))
+        error_lst.append(error)
 
         ## Carlos' (weird) way to control the iteration
         # referror=max(abs(gamma_new))
@@ -441,6 +443,7 @@ def LiftingLine(rotors,geometry,result_BEM):
         gamma = UR*gamma_new + (1-UR)*gamma #Applying under relaxation
         it+=1
 
+    results[t].error = error_lst
     return results
 
 

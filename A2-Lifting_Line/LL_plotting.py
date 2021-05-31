@@ -15,7 +15,7 @@ x = 6  # Want figures to be A6
 plt.rc('figure', figsize=[46.82 * .5**(.5 * x), 33.11 * .5**(.5 * x)]   )
 plt.rc('font', family='serif')
 
-save=False # Save or not
+save=True # Save or not
 
 #Radial plots for single rotor and multiple TSRs
 def plot_radial(result_LL, result_BEM, rotors, TSR):
@@ -46,11 +46,13 @@ def plot_radial(result_LL, result_BEM, rotors, TSR):
                     Z=getattr(dic, str(var[i]))/(0.5*rotor.wind_speed**2*rotor.radius)
                 elif var[i]=='circulation':
                     Z=getattr(dic, str(var[i]))/((m.pi*rotor.wind_speed**2/(rotor.n_blades*rotor.omega)))
+
                 else:
                     Z=getattr(dic, str(var[i]))
 
                 if j==0:
                     plt.plot(dic.mu[idx1:idx2], Z[idx1:idx2],'--', color=colours[l])
+
                 else:
                     plt.plot(dic.mu[idx1:idx2], Z[idx1:idx2], label = '$\lambda$='+str(TSR[l]), color=colours[l])
                 plt.legend()
@@ -182,7 +184,7 @@ def plot_difference_2R(x, CT_lst, CP_lst, var):
         y1 = (lst[1]-ref)/ref*100
         y2 = (lst[2]-ref)/ref*100
         plt.figure()
-        plt.plot(x, y1, label='Rotor 1')
+        plt.plot(x, y1,'-o', label='Rotor 1')
         plt.plot(x, y2, label='Rotor 2')
         plt.xlabel(xlab)
         plt.ylabel(ylab)
@@ -247,3 +249,21 @@ def plot_radial_2R_phase(LL_2Rs, LL, rotor, blades_all, phase_lst, phase, shift,
         plt.legend()
         if save==True:
             plt.savefig('figures/2R_'+name+'_'+str(var[i])+'.pdf')
+
+def plot_convergence_TSR(results_LL, TSR):
+    colours = ['deepskyblue', 'firebrick', 'mediumpurple']
+    #fig = plt.figure()
+    ax = plt.gca()
+    ax.grid()
+    plt.xlabel('Number of iterations [-]')
+    plt.ylabel('Error')
+    ax.set_yscale('log')
+    ax.set_xscale('log')
+    for i in range(len(TSR)):
+        LL = results_LL[i][0]
+        error = getattr(LL, 'error')
+        ax.plot(np.linspace(0,len(error),len(error)), error, label='$\lambda = $'+str(TSR[i]), color=colours[i])
+
+    plt.legend()
+    if save==True:
+        plt.savefig('figures/convergence_TSR.pdf')

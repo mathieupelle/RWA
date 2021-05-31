@@ -7,7 +7,7 @@ Created on Mon May 17 10:39:42 2021
 
 from LL_Utilities import VortexGeometry, LiftingLine
 from BEMT_Utilities import BEMT_execute
-from LL_plotting import plot_radial, performance_coefs, plot_radial_2R, performance_coefs_2R, plot_difference_2R, plot_radial_2R_phase
+from LL_plotting import plot_radial, performance_coefs, plot_radial_2R, performance_coefs_2R, plot_difference_2R, plot_radial_2R_phase, plot_convergence_TSR
 import numpy as np
 
 #%% Single rotor case - Radial plots, TSR effect, Performance coefficients
@@ -16,7 +16,7 @@ import numpy as np
 N_radial = 35
 spacing = 'cos'
 U_inf = 10
-TSR = [8]
+TSR = [6,8,10]
 results_LL = []
 results_BEM = []
 rotors = []
@@ -41,6 +41,7 @@ for i in range(len(TSR)):
 
 # Radial plots
 plot_radial(results_LL, results_BEM, rotors, TSR)
+plot_convergence_TSR(results_LL, TSR)
 
 
 #%% Double rotor case - Radial plots and performance coefficients for both rotors and all blades
@@ -165,7 +166,6 @@ for i in range(len(D_lst)):
 plot_difference_2R(D_lst, CT_lst, CP_lst, 'distance')
 
 #%%
-
 
 
 
