@@ -7,6 +7,7 @@ Created on Mon Jun  7 12:28:41 2021
 
 import math as m
 import numpy as np
+import matplotlib.pyplot as plt
 
 def VOR2D(point, vortex, gamma):
     """
@@ -146,7 +147,7 @@ def vortex_wake_rollup(vortex_lst, gamma, dt, N_panels):
     vortex_lst[N_panels:] = wake_vortex_lst
     return vortex_lst
 
-def vortex_panel(time, N_panels, theta=0, omega=0):
+def vortex_panel(time, N_panels, theta=0, omega=0, c=1, U_inf=1):
 
     if theta:
         print('>> Steady, AOA '+str(theta)+' deg')
@@ -155,12 +156,8 @@ def vortex_panel(time, N_panels, theta=0, omega=0):
     else:
          print('>> Invalid inputs')
 
-
-
-    U_inf = 1
     U_inf_vec = U_inf*np.array([[1], [0]])
 
-    c = 1 #chord
     TE_loc = np.array([[c], [0]]) #Trailing edge location
 
     #Creating airfoil geometry
@@ -245,60 +242,116 @@ def vortex_panel(time, N_panels, theta=0, omega=0):
         #Updating position of wake vortices using induced velocity from all other vortices
         vortex_lst = vortex_wake_rollup(vortex_lst, gamma, dt, N_panels)
 
-    return gamma_lst, vortex_lst
+    results = {'N_panels':N_panels, 'L_panels':L, 'chord':c, 'velocity':U_inf_vec, 'panels': colloc_panels, 'vortices':vortex_lst, 'gamma': gamma_lst}
+    return results
 
+def steady_coefs(alpha, results, rho=1.225):
+    Cl=np.zeros(len(alpha))
+    Cm=np.zeros(len(alpha))
+    for i in range(len(alpha)):
+        result = results[i]
+        U_inf = np.linalg.norm(result['velocity'])
+        dL = rho*U_inf*result['gamma'][0]
+        L = sum(dL)
+        Cl[i] = L/(0.5*rho*U_inf**2*result['chord'])
+
+        x_lst = []
+        for p in range(len(result['panels'])):
+            x = result['panels'][p][0,0]-0.25*result['chord']
+            x_lst.append(x)
+        M = -np.dot(x_lst, dL)
+        Cm[i] = M/(0.5*rho*U_inf**2*result['chord']**2)
+
+
+    plt.figure()
+    plt.plot(alpha, Cl, label='Vortex panel code')
+    plt.plot(alpha, 2*np.pi*np.sin(np.deg2rad(alpha)), 'x', label='2D Airfoil theory')
+    plt.grid()
+    plt.xlabel(r'$\alpha$ [$^{\circ}$]')
+    plt.ylabel('$C_l$ [-]')
+    plt.legend()
+
+    plt.figure()
+    plt.plot(alpha, Cm, label='Vortex panel code')
+    plt.plot(alpha, -np.pi/2*np.sin(np.deg2rad(alpha)), 'x', label='2D Airfoil theory')
+    plt.grid()
+    plt.xlabel(r'$\alpha$ [$^{\circ}$]')
+    plt.ylabel('$C_{m_{0}}$ [-]')
+    plt.legend()
+
+
+def steady_contours(results, rho=1.225):
+    c = result['chord']
+    LE = transform_coords( np.array([[0], [0]]), np.deg2rad(alpha), 0, 0)
+    TE = transform_coords( np.array([[c], [0]]), np.deg2rad(alpha), 0, 0)
+
+    x1 = np.linspace(-0.4*c, 0.4*c, 20)
+    x2 = np.linspace(-1.5*c, -0.4*c, 15)
+    x3 = np.linspace(0.4*c, 1.5*c, 15)
+    x = np.hstack((x2,x1,x3))
+    xx, zz = np.meshgrid(x,x)
+    V_mag = np.zeros((len(x), len(x)))
+    p = np.zeros((len(x), len(x)))
+    for i in range(len(x)):
+        for j in range(len(x)):
+            v = np.array([[0], [0]])
+            for k in range(len(results['vortices'])):
+                v = v + VOR2D(np.array([[x[i]], [x[j]]]), results['vortices'][k], results['gamma'][0][k,0])
+            vel = v+results['velocity']
+            V_mag[i, j] = np.sqrt(vel[0]**2+vel[1]**2)
+            p[i, j] = 0.5*rho*(vel[0]**2+vel[1]**2)
+
+
+    x = np.linspace(-1.5*c, 1.5*c, 20)
+    Vx = np.zeros((len(x), len(x)))
+    Vz = np.zeros((len(x), len(x)))
+    for i in range(len(x)):
+        for j in range(len(x)):
+            v = np.array([[0], [0]])
+            for k in range(len(results['vortices'])):
+                v = v + VOR2D(np.array([[x[i]], [x[j]]]), results['vortices'][k], results['gamma'][0][k,0])
+            vel = v+results['velocity']
+            Vx[i, j] = vel[0,0]
+            Vz[i, j] = vel[1,0]
+
+    cp = plt.contourf(xx, zz, V_mag)
+    plt.quiver(x,x,Vx,Vz, color='white')
+    cbar = plt.colorbar(cp)
+    cbar.ax.set_ylabel('Velocity magnitude [m/s]', rotation=270, labelpad=15)
+    plt.ylabel('z [m]')
+    plt.xlabel('x [m]')
+    plt.plot([LE[0,0], TE[0,0]], [LE[1,0], TE[1,0]], 'k')
+
+    plt.figure()
+    plt.ylabel('z [m]')
+    plt.xlabel('x [m]')
+    plt.quiver(x,x,Vx,Vz, color='black')
+    plt.plot([LE[0,0], TE[0,0]], [LE[1,0], TE[1,0]], color='blue')
+    plt.grid()
+
+    plt.figure()
+    cp = plt.contourf(xx, zz, p)
+    cbar = plt.colorbar(cp)
+    cbar.ax.set_ylabel('Dynamic pressure [Pa]', rotation=270, labelpad=15)
+    plt.ylabel('z [m]')
+    plt.xlabel('x [m]')
+    plt.plot([LE[0,0], TE[0,0]], [LE[1,0], TE[1,0]], 'k')
 
 #%%
 
-import matplotlib.pyplot as plt
-
-rho = 1.225
-U_inf = 1
-c = 1
 alpha = np.arange(0,20,1)
-Cl = np.zeros(len(alpha))
+results = []
 for i in range(len(alpha)):
-    gamma_lst, vortex_lst = vortex_panel([0], 2, theta=alpha[i])
+    result = vortex_panel([0], 2, theta=alpha[i])
+    results.append(result)
 
-    dL = rho*U_inf*gamma_lst[0]
-    L = sum(dL)
-    Cl[i] = L/(0.5*rho*U_inf**2*c)
-
-
-plt.plot(alpha, Cl, label='Vortex panel code')
-plt.plot(alpha, 2*np.pi*np.sin(np.deg2rad(alpha)), 'x', label='2D Airfoil theory')
-plt.grid()
-plt.xlabel(r'$\alpha$ [$^{\circ}$]')
-plt.ylabel('$C_l$ [-]')
-plt.legend()
+steady_coefs(alpha, results)
 
 #%%
 
+alpha = 10
+result = vortex_panel([0], 2, theta=alpha)
+steady_contours(result)
 
-U_inf_vec = np.array([[1], [0]])
-alpha = 5
-LE = transform_coords( np.array([[0], [0]]), np.deg2rad(alpha), 0, 0)
-TE = transform_coords( np.array([[c], [0]]), np.deg2rad(alpha), 0, 0)
+#%%
 
-gamma_lst, vortex_lst = vortex_panel([0], 2, theta=alpha)
-
-
-x = np.linspace(-1.5*c, 1.5*c, 50)
-y = np.linspace(-1.5*c, 1.5*c, 50)
-V_mag = np.zeros((len(x), len(y)))
-for i in range(len(x)):
-    for j in range(len(y)):
-        v = np.array([[0], [0]])
-        for k in range(len(vortex_lst)):
-            v = v + VOR2D(np.array([[x[i]], [y[j]]]), vortex_lst[k], gamma_lst[0][k,0])
-        vel = v+U_inf_vec
-        V_mag[i, j] = np.sqrt(vel[0]**2+vel[1]**2)
-
-xx, yy = np.meshgrid(x,y)
-cp = plt.contourf(xx, yy, V_mag)
-cbar = plt.colorbar(cp)
-cbar.ax.set_ylabel('Velocity magnitude [m/s]', rotation=270, labelpad=15)
-plt.ylabel('y [m]')
-plt.ylabel('x [m]')
-plt.plot([LE[0,0], TE[0,0]], [LE[1,0], TE[1,0]], 'k')
-plt.grid()
