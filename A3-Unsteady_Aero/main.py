@@ -1,9 +1,9 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Jun  7 12:28:41 2021
+# # -*- coding: utf-8 -*-
+# """
+# Created on Mon Jun  7 12:28:41 2021
 
-@author: Mathieu Pellé
-"""
+# @author: Mathieu Pellé
+# """
 
 import math as m
 import numpy as np
@@ -216,6 +216,7 @@ def vortex_panel(time, N_panels, theta=0, omega=0, c=1, U_inf=1):
 
         #For other time, shed vortices
         else:
+            gamma_lst[0] = np.array([0])
             shed_vortex_loc = transform_coords(1.2*TE_loc, theta, U_inf_vec, dt) #position of newly shed vortex
             vortex_lst.append(shed_vortex_loc) #store position
 
@@ -228,7 +229,8 @@ def vortex_panel(time, N_panels, theta=0, omega=0, c=1, U_inf=1):
             for i in range(N_panels):
                 velocity_vec.append(transform_vel(V_origin, theta, theta_dot, colloc_panels[i][0][0]))
             f = RHS_vector(colloc_lst, vortex_lst, gamma_lst[t-1], N_panels, velocity_vec, normal_vec)
-            gamma_previous = np.sum(gamma_lst[t-1])
+            gamma_previous = -np.sum(gamma_lst[t-1][N_panels:])
+            print(gamma_lst[t-1][N_panels:])
             f = np.vstack((f, gamma_previous)) #Total circulation at previous time step
 
         #Solve system
@@ -257,7 +259,7 @@ def steady_coefs(alpha, results, rho=1.225):
 
         x_lst = []
         for p in range(len(result['panels'])):
-            x = result['panels'][p][0,0]-0.25*result['chord']
+            x = result['panels'][p][0,0]-0.5*result['L_panels']
             x_lst.append(x)
         M = -np.dot(x_lst, dL)
         Cm[i] = M/(0.5*rho*U_inf**2*result['chord']**2)
@@ -280,7 +282,7 @@ def steady_coefs(alpha, results, rho=1.225):
     plt.legend()
 
 
-def steady_contours(results, rho=1.225):
+def steady_contours(results, alpha, rho=1.225):
     c = result['chord']
     LE = transform_coords( np.array([[0], [0]]), np.deg2rad(alpha), 0, 0)
     TE = transform_coords( np.array([[c], [0]]), np.deg2rad(alpha), 0, 0)
@@ -313,7 +315,7 @@ def steady_contours(results, rho=1.225):
             vel = v+results['velocity']
             Vx[i, j] = vel[0,0]
             Vz[i, j] = vel[1,0]
-
+    plt.figure()
     cp = plt.contourf(xx, zz, V_mag)
     plt.quiver(x,x,Vx,Vz, color='white')
     cbar = plt.colorbar(cp)
@@ -337,21 +339,25 @@ def steady_contours(results, rho=1.225):
     plt.xlabel('x [m]')
     plt.plot([LE[0,0], TE[0,0]], [LE[1,0], TE[1,0]], 'k')
 
-#%%
+#%% Steady - Polar, pressure and velocity contours
 
 alpha = np.arange(0,20,1)
 results = []
 for i in range(len(alpha)):
-    result = vortex_panel([0], 2, theta=alpha[i])
+    result = vortex_panel([0], 10, theta=alpha[i])
     results.append(result)
 
 steady_coefs(alpha, results)
 
-#%%
-
 alpha = 10
 result = vortex_panel([0], 2, theta=alpha)
-steady_contours(result)
+steady_contours(result, alpha)
 
 #%%
 
+result = vortex_panel(np.linspace(0, 1), 2, omega=0.1)
+
+for i in range(len(result['gamma'])):
+    gamma_sum = sum(result['gamma'][i])
+
+    print(gamma_sum)
