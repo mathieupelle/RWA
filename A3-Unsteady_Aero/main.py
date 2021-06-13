@@ -147,19 +147,20 @@ def vortex_wake_rollup(vortex_lst, gamma, dt, N_panels):
     vortex_lst[N_panels:] = wake_vortex_lst
     return vortex_lst
 
-def vortex_panel(time, N_panels, theta=0, omega=0, c=1, U_inf=1):
+def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf=1):
 
-    if theta:
+    if len(theta)==1:
         print('>> Steady, AOA '+str(theta)+' deg')
-    elif omega:
-        print('>> Unsteady, Oscillation freq. '+str(omega)+' rad/s')
+    elif len(theta)>1:
+        print('>> Unsteady, Oscillations')
     else:
          print('>> Invalid inputs')
 
     U_inf_vec = U_inf*np.array([[1], [0]])
-
     TE_loc = np.array([[c], [0]]) #Trailing edge location
-
+    LE_loc = np.array([[0],[0]])
+    shed_loc = 1.2*TE_loc
+    theta = np.deg2rad(theta)
     #Creating airfoil geometry
     L = c/N_panels
     vortex_lst = []
@@ -177,47 +178,47 @@ def vortex_panel(time, N_panels, theta=0, omega=0, c=1, U_inf=1):
 
     # List for change in circulation with time
     gamma_lst = []
-
+    TE_loc_lst = []
+    LE_loc_lst = []
     # Time loop
     for t in range(len(time)):
 
         if t==0:
             dt=0
+            dtheta=theta[0]
         else:
             dt=time[t]-time[t-1]
+            dtheta=theta[t]-theta[t-1]
 
         V_origin = -U_inf_vec
 
-        # Pitching rotation and speed
-        if theta:
-            theta = np.deg2rad(theta)
-            theta_dot = 0
-        else:
-            theta = m.sin(omega*time[t])
-            theta_dot = omega*m.cos(omega*time[t])
 
-        normal_vec_global = transform_coords(normal_vec.T, theta, U_inf_vec, dt)
+        normal_vec_global = transform_coords(normal_vec.T, theta[t], U_inf_vec, dt)
         normal_vec_global = normal_vec_global.T
+        TE_loc = transform_coords(TE_loc, dtheta, U_inf_vec, dt)
+        LE_loc = transform_coords(LE_loc, 0, U_inf_vec, dt)
+        TE_loc_lst.append(TE_loc)
+        LE_loc_lst.append(LE_loc)
 
         #Updated positions of collocations pts and vortices on airfoil only
         for i in range(N_panels):
-            colloc_lst[i] = transform_coords(colloc_lst[i], theta, U_inf_vec, dt)
+            colloc_lst[i] = transform_coords(colloc_lst[i], dtheta, U_inf_vec, dt)
 
         for j in range(len(vortex_lst)):
-            vortex_lst[j] = transform_coords(vortex_lst[j], theta, U_inf_vec, dt)
+            vortex_lst[j] = transform_coords(vortex_lst[j], dtheta, U_inf_vec, dt)
 
         #For initial time, no shed vortex
         if t==0:
             a = influence_matrix(colloc_lst, vortex_lst, normal_vec_global, N_panels)
             velocity_vec = []
             for i in range(N_panels):
-                velocity_vec.append(transform_vel(V_origin, theta, theta_dot, colloc_panels[i][0][0]))
+                velocity_vec.append(transform_vel(V_origin, theta[t], theta_dot[t], colloc_panels[i][0][0]))
             f = RHS_vector(colloc_lst, vortex_lst, np.zeros((2,1)), N_panels, velocity_vec, normal_vec)
 
         #For other time, shed vortices
         else:
             gamma_lst[0] = np.array([0])
-            shed_vortex_loc = transform_coords(1.2*TE_loc, theta, U_inf_vec, dt) #position of newly shed vortex
+            shed_vortex_loc = transform_coords(shed_loc, theta[t], U_inf_vec, dt) #position of newly shed vortex
             vortex_lst.append(shed_vortex_loc) #store position
 
             # influence matrix for each collocation pts and latest shed vortex
@@ -227,10 +228,9 @@ def vortex_panel(time, N_panels, theta=0, omega=0, c=1, U_inf=1):
             # RHS matrix with kinematic vel. and induced vel. of all but latest shed vortices
             velocity_vec = []
             for i in range(N_panels):
-                velocity_vec.append(transform_vel(V_origin, theta, theta_dot, colloc_panels[i][0][0]))
+                velocity_vec.append(transform_vel(V_origin, theta[t], theta_dot[t], colloc_panels[i][0][0]))
             f = RHS_vector(colloc_lst, vortex_lst, gamma_lst[t-1], N_panels, velocity_vec, normal_vec)
             gamma_previous = -np.sum(gamma_lst[t-1][N_panels:])
-            print(gamma_lst[t-1][N_panels:])
             f = np.vstack((f, gamma_previous)) #Total circulation at previous time step
 
         #Solve system
@@ -244,7 +244,8 @@ def vortex_panel(time, N_panels, theta=0, omega=0, c=1, U_inf=1):
         #Updating position of wake vortices using induced velocity from all other vortices
         vortex_lst = vortex_wake_rollup(vortex_lst, gamma, dt, N_panels)
 
-    results = {'N_panels':N_panels, 'L_panels':L, 'chord':c, 'velocity':U_inf_vec, 'panels': colloc_panels, 'vortices':vortex_lst, 'gamma': gamma_lst}
+    results = {'N_panels':N_panels, 'L_panels':L, 'chord':c, 'velocity':U_inf_vec, 'panels': colloc_panels, 'vortices':vortex_lst, 'gamma': gamma_lst,
+               'LE':LE_loc_lst, 'TE':TE_loc_lst}
     return results
 
 def steady_coefs(alpha, results, rho=1.225):
@@ -339,25 +340,67 @@ def steady_contours(results, alpha, rho=1.225):
     plt.xlabel('x [m]')
     plt.plot([LE[0,0], TE[0,0]], [LE[1,0], TE[1,0]], 'k')
 
+
+def scatter(results, TE=True, LE=True, Vortex=True):
+    markers = ['o', 'x', '+']
+    plt.figure()
+    plt.grid()
+    plt.xlabel('x [m]')
+    plt.ylabel('y [m]')
+    if Vortex:
+        for i in range(len(results)):
+            result = results[i]
+            coords = result['vortices']
+            x = []
+            y =[]
+            for j in range(len(coords)):
+                x.append(coords[j][0,0])
+                y.append(coords[j][1,0])
+
+            plt.scatter(x,y,marker=markers[i])
+    if TE:
+        result = results[0]
+        coords = result['TE']
+        x = []
+        y =[]
+        for i in range(len(coords)):
+            x.append(coords[i][0,0])
+            y.append(coords[i][1,0])
+        plt.scatter(x,y, marker='.', color='black')
+
+    if LE:
+        result = results[0]
+        coords = result['LE']
+        x = []
+        y =[]
+        for i in range(len(coords)):
+            x.append(coords[i][0,0])
+            y.append(coords[i][1,0])
+        plt.scatter(x,y, marker='.', color='purple')
+
 #%% Steady - Polar, pressure and velocity contours
 
 alpha = np.arange(0,20,1)
 results = []
 for i in range(len(alpha)):
-    result = vortex_panel([0], 10, theta=alpha[i])
+    result = vortex_panel([0], 2, [alpha[i]], [0])
     results.append(result)
 
 steady_coefs(alpha, results)
 
 alpha = 10
-result = vortex_panel([0], 2, theta=alpha)
+result = vortex_panel([0], 2, [alpha], [0])
 steady_contours(result, alpha)
 
 #%%
+omega=2
+t = np.arange(0, 3.1, 0.05)
 
-result = vortex_panel(np.linspace(0, 1), 2, omega=0.1)
+theta = np.sin(omega*t)
+theta_dot = omega*np.cos(omega*t)
+result = vortex_panel(t, 2, theta, theta_dot)
 
-for i in range(len(result['gamma'])):
-    gamma_sum = sum(result['gamma'][i])
 
-    print(gamma_sum)
+#scatter([result])
+
+
