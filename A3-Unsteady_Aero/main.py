@@ -26,13 +26,13 @@ def VOR2D(point, vortex, gamma):
     """
     r = np.linalg.norm(point-vortex)
 
-    if r<1e-4:
+    if r<1e-8:
         v = 0
     else:
         v = gamma/(2*m.pi*r**2)*np.matrix([[0, 1], [-1, 0]])*(point-vortex)
     return v
 
-def transform_coords(point, angle, speed, dt):
+def transform_coords(point, angle, LE):
     """
       Transforms coordinates with speed and rotation of airfoil. Local --> Global
 
@@ -49,14 +49,14 @@ def transform_coords(point, angle, speed, dt):
 
     """
     T = np.matrix([[m.cos(angle), m.sin(angle)], [-m.sin(angle), m.cos(angle)]])
-    X = T*point - speed*dt
+    X = T*point + LE
 
     return X
 
 def transform_vel(speed, angle, rotational_speed, x_pos):
 
     T = np.matrix([[m.cos(angle), -m.sin(angle)], [m.sin(angle), m.cos(angle)]])
-    V = T*-speed + rotational_speed*np.array([[0], [x_pos]])
+    V = T*speed + rotational_speed*np.array([[0], [x_pos]])
 
     return V
 
@@ -140,12 +140,14 @@ def vortex_wake_rollup(vortex_lst, gamma, dt, N_panels):
     for i in range(len(wake_vortex_lst)):
         v = np.zeros((2,1))
         for j in range(len(vortex_lst)):
-
             v += VOR2D(wake_vortex_lst[i], vortex_lst[j], gamma[j,0])
+            #print(wake_vortex_lst[i], vortex_lst[j], gamma[j,0])
+            #print(v)
 
         wake_vortex_lst[i] = wake_vortex_lst[i] + v*dt
-    vortex_lst[N_panels:] = wake_vortex_lst
-    return vortex_lst
+    lst = vortex_lst[:N_panels]+wake_vortex_lst
+    return lst
+
 
 def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf=1):
 
@@ -161,15 +163,18 @@ def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf=1):
     LE_loc = np.array([[0],[0]])
     shed_loc = 1.2*TE_loc
     theta = np.deg2rad(theta)
+
     #Creating airfoil geometry
     L = c/N_panels
     vortex_lst = []
     colloc_panels = []
     colloc_lst = []
+    vortex_panels = []
     for n in range(N_panels):
         vortex = np.array([[1/4], [0]])*L+n*L*np.array([[1], [0]]) #Bound vortex
         colloc = np.array([[3/4], [0]])*L+n*L*np.array([[1], [0]]) #Collocation point
         vortex_lst.append(vortex)
+        vortex_panels.append(vortex)
         colloc_lst.append(colloc)
         colloc_panels.append(colloc)
 
@@ -188,24 +193,24 @@ def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf=1):
             dtheta=theta[0]
         else:
             dt=time[t]-time[t-1]
-            dtheta=theta[t]-theta[t-1]
+            #dtheta=theta[t]-theta[t-1]
 
         V_origin = -U_inf_vec
 
 
-        normal_vec_global = transform_coords(normal_vec.T, theta[t], U_inf_vec, dt)
+        normal_vec_global = transform_coords(normal_vec.T, theta[t], np.zeros((2,1)))
         normal_vec_global = normal_vec_global.T
-        TE_loc = transform_coords(TE_loc, dtheta, U_inf_vec, dt)
-        LE_loc = transform_coords(LE_loc, 0, U_inf_vec, dt)
-        TE_loc_lst.append(TE_loc)
+
+        LE_loc = LE_loc - U_inf_vec*dt
+        TE_loc_T = transform_coords(np.array([[1],[0]]), theta[t], LE_loc)
+        shed_loc = TE_loc_T+np.array([[0.2],[0]])
+        TE_loc_lst.append(TE_loc_T)
         LE_loc_lst.append(LE_loc)
 
         #Updated positions of collocations pts and vortices on airfoil only
         for i in range(N_panels):
-            colloc_lst[i] = transform_coords(colloc_lst[i], dtheta, U_inf_vec, dt)
-
-        for j in range(len(vortex_lst)):
-            vortex_lst[j] = transform_coords(vortex_lst[j], dtheta, U_inf_vec, dt)
+            colloc_lst[i] = transform_coords(colloc_panels[i], theta[t], LE_loc)
+            vortex_lst[i] = transform_coords(vortex_panels[i], theta[t], LE_loc)
 
         #For initial time, no shed vortex
         if t==0:
@@ -218,8 +223,9 @@ def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf=1):
         #For other time, shed vortices
         else:
             gamma_lst[0] = np.array([0])
-            shed_vortex_loc = transform_coords(shed_loc, theta[t], U_inf_vec, dt) #position of newly shed vortex
-            vortex_lst.append(shed_vortex_loc) #store position
+            #shed_vortex_loc = transform_coords(shed_loc, theta[t], U_inf_vec, dt) #position of newly shed vortex
+            #shed_loc = transform_coords(shed_loc, dtheta, U_inf_vec, dt)
+            vortex_lst.append(shed_loc) #store position
 
             # influence matrix for each collocation pts and latest shed vortex
             a = influence_matrix(colloc_lst, vortex_lst, normal_vec_global, N_panels)
@@ -292,6 +298,7 @@ def steady_contours(results, alpha, rho=1.225):
     x2 = np.linspace(-1.5*c, -0.4*c, 15)
     x3 = np.linspace(0.4*c, 1.5*c, 15)
     x = np.hstack((x2,x1,x3))
+    x = np.linspace(-0.4,1.4,100)
     xx, zz = np.meshgrid(x,x)
     V_mag = np.zeros((len(x), len(x)))
     p = np.zeros((len(x), len(x)))
@@ -302,7 +309,7 @@ def steady_contours(results, alpha, rho=1.225):
                 v = v + VOR2D(np.array([[x[i]], [x[j]]]), results['vortices'][k], results['gamma'][0][k,0])
             vel = v+results['velocity']
             V_mag[i, j] = np.sqrt(vel[0]**2+vel[1]**2)
-            p[i, j] = 0.5*rho*(vel[0]**2+vel[1]**2)
+            p[i, j] = -0.5*rho*(vel[0]**2+vel[1]**2)
 
 
     x = np.linspace(-1.5*c, 1.5*c, 20)
@@ -358,6 +365,7 @@ def scatter(results, TE=True, LE=True, Vortex=True):
                 y.append(coords[j][1,0])
 
             plt.scatter(x,y,marker=markers[i])
+
     if TE:
         result = results[0]
         coords = result['TE']
@@ -394,13 +402,18 @@ steady_contours(result, alpha)
 
 #%%
 omega=2
-t = np.arange(0, 3.1, 0.05)
+t = np.arange(0, 5, 0.1)
+#t=[0,1,2]
 
-theta = np.sin(omega*t)
+theta = 20*np.sin(omega*t)
+#theta = np.ones(len(t))
+#theta = [0, 15, 30]
 theta_dot = omega*np.cos(omega*t)
-result = vortex_panel(t, 2, theta, theta_dot)
+result = vortex_panel(t, 2, theta, theta_dot, U_inf=1)
 
 
-#scatter([result])
+scatter([result])
+
+#%%
 
 
