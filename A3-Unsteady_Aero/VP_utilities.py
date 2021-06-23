@@ -56,7 +56,7 @@ def transform_coords(point, angle, LE):
 def transform_vel(speed, angle, rotational_speed, x_pos):
 
     T = np.matrix([[m.cos(angle), -m.sin(angle)], [m.sin(angle), m.cos(angle)]])
-    V = T*speed + rotational_speed*np.array([[0], [x_pos]])
+    V = T*-speed + rotational_speed*np.array([[0], [x_pos]])
 
     return V
 
@@ -218,8 +218,8 @@ def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf=1):
         #Computing velocity vecotr at each collocation point
         for i in range(N_panels):
             velocity_vec.append(transform_vel(V_origin, theta[0], theta_dot[0], colloc_panels[i][0][0]))
-        f = RHS_vector(colloc_lst, vortex_lst, np.zeros((N_panels,1)), N_panels, velocity_vec, normal_vec) #RHS vector
 
+        f = RHS_vector(colloc_lst, vortex_lst, np.zeros((N_panels,1)), N_panels, velocity_vec, normal_vec) #RHS vector
         gamma = np.linalg.inv(np.asmatrix(a))*f #solving system
         gamma_lst.append(gamma) #stroing circulation
         vortex_history.append(vortex_lst)
@@ -227,7 +227,10 @@ def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf=1):
 
     #Unsteady code
     else:
-        print('>> Unsteady, Oscillations')
+        if theta[-1]==theta[-2]:
+            print('>> Unsteady, Step')
+        else:
+            print('>> Unsteady, Oscillations')
 
         for t in range(len(time)):
             if t==0:
