@@ -60,7 +60,7 @@ def transform_vel(speed, angle, rotational_speed, x_pos):
 
     return V
 
-def influence_matrix(colloc_lst, vortex_lst, normal, N_panels):
+def influence_matrix(colloc_lst, vortex_lst, normal, N_panels, flap=False):
     """
       Computes influcence matrix using panel vortices and latest wake vortex
 
@@ -88,11 +88,14 @@ def influence_matrix(colloc_lst, vortex_lst, normal, N_panels):
     for i in range(len(colloc_lst)):
         for j in range(len(vortex_lst_LHS)):
             v = VOR2D(colloc_lst[i], vortex_lst_LHS[j], 1)
+            if flap:
+                if i>N_panels-flap['N_panels']-1:
+                    normal = flap['norm_vec_global']
             a[i, j] = np.dot(normal, v)
 
     return a
 
-def RHS_vector(colloc_lst, vortex_lst, gamma, N_panels, velocity_vec, normal_vec):
+def RHS_vector(colloc_lst, vortex_lst, gamma, N_panels, velocity_vec, normal_vec, flap=False):
     """
       Computes RHS vector using all wake vortices but latest one
 
@@ -117,6 +120,10 @@ def RHS_vector(colloc_lst, vortex_lst, gamma, N_panels, velocity_vec, normal_vec
         for j in range(len(wake_vortex_lst)):
             v = VOR2D(colloc_lst[i], wake_vortex_lst[j], gamma_wake_vortex[j,0])
             velocity_vec[i] = velocity_vec[i] + v
+
+        if flap:
+            if i>N_panels-flap['N_panels']-1:
+                normal_vec = flap['norm_vec']
 
         RHS[i,0] = -np.dot(normal_vec, velocity_vec[i])
     return RHS
@@ -147,25 +154,7 @@ def vortex_wake_rollup(vortex_lst, gamma, dt, N_panels):
     return lst
 
 
-def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf=1):
-    """
-      Updates position of wake vortices based on induced velocity at each location
-
-      Parameters
-      ----------
-      time: [array] Time vector
-      N_panels: [int] Number of panels
-      theta: [array] Angle of attack vector
-      theta_dot: [array] Angular speed vector (derivative of previous)
-      c: [float] Chord. Assumed as 1m if unspecified
-      U_inf: [float] Wind speed magnitude. Assumed as 1m/s if unspecified
-
-      Returns
-      -------
-      results : [dictionnary] All relevant outputs. Circulation, coordinates, number of panels, etc...
-
-    """
-
+def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf=1, flap=False):
     if len(theta)==1:
         mode = 'steady'
     elif len(theta)>1:
@@ -199,6 +188,21 @@ def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf=1):
         colloc_lst.append(colloc)
         colloc_panels.append(colloc)
 
+    if flap:
+        flap_angle = np.deg2rad(flap['angle'])
+        L = flap['length']/flap['N_panels']
+        N_panels = flap['N_panels']+ N_panels
+        for n in range(flap['N_panels']):
+            vortex = np.array([[1/4], [0]])*L+n*L*np.array([[1], [0]])
+            vortex = transform_coords(vortex, flap_angle, TE_loc)
+            colloc = np.array([[3/4], [0]])*L+n*L*np.array([[1], [0]])
+            colloc = transform_coords(colloc, flap_angle, TE_loc)
+
+            vortex_lst.append(vortex)
+            vortex_panels.append(np.asarray(vortex))
+            colloc_lst.append(colloc)
+            colloc_panels.append(np.asarray(colloc))
+
     gamma_lst = []
     LE_loc_lst = [] #Tracking leading edge location
     TE_loc_lst = [] #Tracking trailing edge location
@@ -209,17 +213,29 @@ def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf=1):
 
         normal_vec_global = transform_coords(normal_vec.T, theta[0], np.zeros((2,1))) #Transforming normal vector
         normal_vec_global = normal_vec_global.T #Transposing
+
+        if flap:
+            flap_normal_vec = transform_coords(normal_vec.T, flap_angle, np.zeros((2,1))) #Transforming normal vector
+            flap_normal_vec_global = transform_coords(normal_vec.T, theta[0]+flap_angle, np.zeros((2,1))) #Transforming normal vector
+            flap['norm_vec']=flap_normal_vec.T
+            flap['norm_vec_global']=flap_normal_vec_global.T
+
         TE_loc_T = transform_coords(TE_loc, theta[0], LE_loc) #Transforming trailing edge location
         TE_loc_lst.append(TE_loc_T) #Storing trailing edge position
         LE_loc_lst.append(LE_loc) #Storing leading edge position
 
-        a = influence_matrix(colloc_lst, vortex_lst, normal_vec_global, N_panels) #Influence matrix
+        #Updated positions of collocations pts and vortices on airfoil only
+        for i in range(N_panels):
+            colloc_lst[i] = transform_coords(colloc_panels[i], theta[0], LE_loc)
+            vortex_lst[i] = transform_coords(vortex_panels[i], theta[0], LE_loc)
+
+        a = influence_matrix(colloc_lst, vortex_lst, normal_vec_global, N_panels, flap=flap) #Influence matrix
         velocity_vec = []
         #Computing velocity vecotr at each collocation point
         for i in range(N_panels):
             velocity_vec.append(transform_vel(V_origin, theta[0], theta_dot[0], colloc_panels[i][0][0]))
 
-        f = RHS_vector(colloc_lst, vortex_lst, np.zeros((N_panels,1)), N_panels, velocity_vec, normal_vec) #RHS vector
+        f = RHS_vector(colloc_lst, vortex_lst, np.zeros((N_panels,1)), N_panels, velocity_vec, normal_vec, flap=flap) #RHS vector
         gamma = np.linalg.inv(np.asmatrix(a))*f #solving system
         gamma_lst.append(gamma) #stroing circulation
         vortex_history.append(vortex_lst)
@@ -292,5 +308,4 @@ def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf=1):
     results = {'N_panels':N_panels, 'L_panels':L, 'chord':c, 'velocity':U_inf_vec, 'panels': colloc_panels,
                'vortices':vortex_history, 'gamma': gamma_lst, 'LE':LE_loc_lst, 'TE':TE_loc_lst,
                'time': time, 'panels_history': colloc_history}
-
     return results

@@ -23,7 +23,7 @@ for i in range(len(alpha)):
 steady_polars(alpha, results)
 
 #Contours
-result = vortex_panel([0], 10, [10], [0], U_inf=1)
+result = vortex_panel([0], 10, [30], [0], U_inf=1)
 steady_contours(alpha, result, quiver=False, streamlines=True)
 
 #%% Unsteady case - oscillations
@@ -56,4 +56,15 @@ unsteady_polars(theta, result, basic_method=False)
 
 # unsteady_polars(theta, result, inputs=True, arrows=False)
 
-#%%
+#%% Steady case - flap
+
+flap = {'length':0.1, 'angle':10, 'N_panels':2}
+
+alpha = np.arange(0,15,1)
+results = []
+for i in range(len(alpha)):
+    result = vortex_panel([0], 10, [alpha[i]], [0], U_inf=2, flap=flap)
+    results.append(result)
+    #scatter([result])
+
+steady_polars(alpha, results, moment=False, flap=flap)

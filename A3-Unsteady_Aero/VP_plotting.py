@@ -9,19 +9,25 @@ import matplotlib.pyplot as plt
 import numpy as np
 from VP_utilities import VOR2D
 
-def steady_polars(alpha, results, rho=1.225):
-
-    for j in range(2):
+def steady_polars(alpha, results, rho=1.225, moment=True, flap=False):
+    if moment:
+        N=2
+    else:
+        N=1
+    for j in range(N):
         C=np.zeros(len(alpha))
         C_theory=np.zeros(len(alpha))
         for i in range(len(alpha)):
             result = results[i]
+            c = result['chord']
+            if flap:
+                c = c+flap['length']
             U_inf = np.linalg.norm(result['velocity'])
             dL = rho*U_inf*(result['gamma'][0]) #CHECK!!!!
             L = sum(dL)
 
             if j==0:
-                C[i] = L/(0.5*rho*U_inf**2*result['chord'])
+                C[i] = L/(0.5*rho*U_inf**2*c)
                 C_theory[i]=2*np.pi*np.sin(np.deg2rad(alpha[i]))
                 label = '$C_l$ [-]'
             else:
