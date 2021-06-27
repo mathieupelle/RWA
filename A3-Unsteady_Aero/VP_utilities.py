@@ -154,7 +154,7 @@ def vortex_wake_rollup(vortex_lst, gamma, dt, N_panels):
     return lst
 
 
-def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf=1, flap=False):
+def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf_vec=[np.array([[1],[0]])], flap=False):
     if len(theta)==1:
         mode = 'steady'
     elif len(theta)>1:
@@ -162,12 +162,10 @@ def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf=1, flap=False):
     else:
          print('>> Invalid inputs')
 
-    U_inf_vec = U_inf*np.array([[1], [0]]) #Velocity vector
     TE_loc = np.array([[c], [0]]) #Trailing edge
     LE_loc = np.array([[0],[0]]) #Leading edge
     theta = np.deg2rad(theta) #angle of attack
     normal_vec = np.array([[0, 1]]) #Normal vector for uncambered airfoil (local frame)
-    V_origin = -U_inf_vec #Origin velocity
 
     #Creating panels
     L = c/N_panels #Panel length
@@ -188,9 +186,12 @@ def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf=1, flap=False):
         colloc_lst.append(colloc)
         colloc_panels.append(colloc)
 
+
     if flap:
         flap_angle = np.deg2rad(flap['angle'])
         L = flap['length']/flap['N_panels']
+        if flap['length']==0:
+            flap['N_panels'] = 0
         N_panels = flap['N_panels']+ N_panels
         for n in range(flap['N_panels']):
             vortex = np.array([[1/4], [0]])*L+n*L*np.array([[1], [0]])
@@ -203,6 +204,7 @@ def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf=1, flap=False):
             colloc_lst.append(colloc)
             colloc_panels.append(np.asarray(colloc))
 
+
     gamma_lst = []
     LE_loc_lst = [] #Tracking leading edge location
     TE_loc_lst = [] #Tracking trailing edge location
@@ -214,15 +216,22 @@ def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf=1, flap=False):
         normal_vec_global = transform_coords(normal_vec.T, theta[0], np.zeros((2,1))) #Transforming normal vector
         normal_vec_global = normal_vec_global.T #Transposing
 
+        V_origin = -U_inf_vec[0]
+
         if flap:
             flap_normal_vec = transform_coords(normal_vec.T, flap_angle, np.zeros((2,1))) #Transforming normal vector
             flap_normal_vec_global = transform_coords(normal_vec.T, theta[0]+flap_angle, np.zeros((2,1))) #Transforming normal vector
             flap['norm_vec']=flap_normal_vec.T
             flap['norm_vec_global']=flap_normal_vec_global.T
 
+
         TE_loc_T = transform_coords(TE_loc, theta[0], LE_loc) #Transforming trailing edge location
         TE_loc_lst.append(TE_loc_T) #Storing trailing edge position
         LE_loc_lst.append(LE_loc) #Storing leading edge position
+
+        if flap:
+            flap_TE_loc = np.array([[flap['length']],[0]])
+            flap_TE_loc_T = transform_coords(flap_TE_loc, theta[0]+flap_angle, TE_loc_T)
 
         #Updated positions of collocations pts and vortices on airfoil only
         for i in range(N_panels):
@@ -257,7 +266,9 @@ def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf=1, flap=False):
             normal_vec_global = transform_coords(normal_vec.T, theta[t], np.zeros((2,1))) #Transforming normal vector
             normal_vec_global = normal_vec_global.T #Transposing
 
-            LE_loc = LE_loc - U_inf_vec*dt #Updating leading edge (origin) position. Airfoil moves left.
+            V_origin = -U_inf_vec[t]
+
+            LE_loc = LE_loc - U_inf_vec[t]*dt #Updating leading edge (origin) position. Airfoil moves left.
             TE_loc_T = transform_coords(TE_loc, theta[t], LE_loc) #Transforming trailing edge location and shifting based on LE.
             TE_loc_lst.append(TE_loc_T) #Storing trailing edge position
             LE_loc_lst.append(LE_loc) #Storing leading edge position
@@ -308,4 +319,7 @@ def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf=1, flap=False):
     results = {'N_panels':N_panels, 'L_panels':L, 'chord':c, 'velocity':U_inf_vec, 'panels': colloc_panels,
                'vortices':vortex_history, 'gamma': gamma_lst, 'LE':LE_loc_lst, 'TE':TE_loc_lst,
                'time': time, 'panels_history': colloc_history}
+
+    if flap:
+        results['flap_TE']=flap_TE_loc_T
     return results
