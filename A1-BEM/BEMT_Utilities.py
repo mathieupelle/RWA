@@ -184,7 +184,7 @@ class BEMT:
         return f,f_tip,f_root
     
     
-    def Solver(self,Prandtl_correction = True,N_iter_max = 1000,delta=1e-6):
+    def Solver(self,Prandtl_correction = True,N_iter_max = 1000,delta=1e-6,):
         warnings.simplefilter('ignore') #Ignore error messages (division by 0 at the innermost sections with very high nº of points)
        
     
@@ -212,7 +212,7 @@ class BEMT:
                     
                     a,ap = (0.2,0.02) #Initialize induction factors
                     for ite in range(N_iter_max):
-                        #Velocities and angles
+                        #Ve m,.-locities and angles
                         [u_tan,u_nor,u_rel,phi] = self.RelativeVelocities(a,ap,mu,azimuth)
                         alpha = phi - (beta + self.Rotor.theta)*np.pi/180
                         

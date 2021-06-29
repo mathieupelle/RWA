@@ -7,6 +7,7 @@ Created on Mon Jun 21 23:54:43 2021
 
 import math as m
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def VOR2D(point, vortex, gamma):
@@ -34,7 +35,7 @@ def VOR2D(point, vortex, gamma):
 
 def transform_coords(point, angle, LE):
     """
-      Transforms coordinates with speed and rotation of airfoil. Local --> Global
+      Transforms coordinates with speed and rotation of aerofoil. Local --> Global
 
       Parameters
       ----------
@@ -45,7 +46,7 @@ def transform_coords(point, angle, LE):
 
       Returns
       -------
-      X : [2x1 array] Transormed coordinates
+      X : [2x1 array] Transformed coordinates
 
     """
     T = np.matrix([[m.cos(angle), m.sin(angle)], [-m.sin(angle), m.cos(angle)]])
@@ -62,14 +63,14 @@ def transform_vel(speed, angle, rotational_speed, x_pos):
 
 def influence_matrix(colloc_lst, vortex_lst, normal, N_panels, flap=False):
     """
-      Computes influcence matrix using panel vortices and latest wake vortex
+      Computes influence matrix using panel vortices and latest wake vortex
 
       Parameters
       ----------
       colloc_lst: [list] Collocation points
       vortex_lst: [list] All vortices
       normal: [1x2 array] Normal vector in global reference frame
-      N_panels: [float/int] Numer of panels
+      N_panels: [float/int] Number of panels
 
       Returns
       -------
@@ -104,8 +105,8 @@ def RHS_vector(colloc_lst, vortex_lst, gamma, N_panels, velocity_vec, normal_vec
       colloc_lst: [list] Collocation points
       vortex_lst: [list] All vortices
       gamma: [list] Circulation of all vortices
-      N_panels: [float/int] Numer of panels
-      velocity_vec: [2x1 array] Velocity vecotr in local reference frame ???
+      N_panels: [float/int] Number of panels
+      velocity_vec: [2x1 array] Velocity vector in local reference frame ???
       normal_vec: [1x2 array] Normal vector in local reference frame
 
       Returns
@@ -136,11 +137,11 @@ def vortex_wake_rollup(vortex_lst, gamma, dt, N_panels):
       ----------
       vortex_lst: [list] All vortices
       gamma: [list] Circulation of all vortices
-      N_panels: [float/int] Numer of panels
+      N_panels: [float/int] Number of panels
 
       Returns
       -------
-      vortex_lst : [list] Updated positinos of vortices
+      vortex_lst : [list] Updated positions of vortices
 
     """
     wake_vortex_lst = vortex_lst[N_panels:]
@@ -165,7 +166,7 @@ def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf_vec=[np.array([[1]
     TE_loc = np.array([[c], [0]]) #Trailing edge
     LE_loc = np.array([[0],[0]]) #Leading edge
     theta = np.deg2rad(theta) #angle of attack
-    normal_vec = np.array([[0, 1]]) #Normal vector for uncambered airfoil (local frame)
+    normal_vec = np.array([[0, 1]]) #Normal vector for uncambered aerofoil (local frame)
 
     #Creating panels
     L = c/N_panels #Panel length
@@ -233,20 +234,20 @@ def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf_vec=[np.array([[1]
             flap_TE_loc = np.array([[flap['length']],[0]])
             flap_TE_loc_T = transform_coords(flap_TE_loc, theta[0]+flap_angle, TE_loc_T)
 
-        #Updated positions of collocations pts and vortices on airfoil only
+        #Updated positions of collocations pts and vortices on aerofoil only
         for i in range(N_panels):
             colloc_lst[i] = transform_coords(colloc_panels[i], theta[0], LE_loc)
             vortex_lst[i] = transform_coords(vortex_panels[i], theta[0], LE_loc)
 
         a = influence_matrix(colloc_lst, vortex_lst, normal_vec_global, N_panels, flap=flap) #Influence matrix
         velocity_vec = []
-        #Computing velocity vecotr at each collocation point
+        #Computing velocity vector at each collocation point
         for i in range(N_panels):
             velocity_vec.append(transform_vel(V_origin, theta[0], theta_dot[0], colloc_panels[i][0][0]))
 
         f = RHS_vector(colloc_lst, vortex_lst, np.zeros((N_panels,1)), N_panels, velocity_vec, normal_vec, flap=flap) #RHS vector
         gamma = np.linalg.inv(np.asmatrix(a))*f #solving system
-        gamma_lst.append(gamma) #stroing circulation
+        gamma_lst.append(gamma) #storing circulation
         vortex_history.append(vortex_lst)
         colloc_history.append(colloc_lst)
 
@@ -268,19 +269,19 @@ def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf_vec=[np.array([[1]
 
             V_origin = -U_inf_vec[t]
 
-            LE_loc = LE_loc - U_inf_vec[t]*dt #Updating leading edge (origin) position. Airfoil moves left.
+            LE_loc = LE_loc - U_inf_vec[t]*dt #Updating leading edge (origin) position. Aerofoil moves left.
             TE_loc_T = transform_coords(TE_loc, theta[t], LE_loc) #Transforming trailing edge location and shifting based on LE.
             TE_loc_lst.append(TE_loc_T) #Storing trailing edge position
             LE_loc_lst.append(LE_loc) #Storing leading edge position
 
-            #shed_loc = TE_loc_T+np.array([[0.2],[0]])*c #sheading/new vortex location
+            #shed_loc = TE_loc_T+np.array([[0.2],[0]])*c #shedding/new vortex location
             if t==0:
-                shed_loc = TE_loc_T+np.array([[0.25],[0]])*c #sheading/new vortex location
+                shed_loc = TE_loc_T+np.array([[0.25],[0]])*c #shedding/new vortex location
             else:
-                shed_loc = TE_loc_T-(TE_loc_T-TE_loc_lst[t-1])*0.25 #sheading/new vortex location
-            vortex_lst.append(shed_loc) #Storing sheading/new vortex position
+                shed_loc = TE_loc_T-(TE_loc_T-TE_loc_lst[t-1])*0.25 #shedding/new vortex location
+            vortex_lst.append(shed_loc) #Storing shedding/new vortex position
 
-            #Updated positions of collocations pts and vortices on airfoil only
+            #Updated positions of collocations pts and vortices on aerofoil only
             for i in range(N_panels):
                 colloc_lst[i] = transform_coords(colloc_panels[i], theta[t], LE_loc)
                 vortex_lst[i] = transform_coords(vortex_panels[i], theta[t], LE_loc)
@@ -311,7 +312,7 @@ def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf_vec=[np.array([[1]
                 gamma_all = np.vstack((gamma_all, gamma[-1]))
                 gamma = gamma_all
 
-            gamma_lst.append(gamma) #Storing circualtion
+            gamma_lst.append(gamma) #Storing circulation
             vortex_lst = vortex_wake_rollup(vortex_lst, gamma, dt, N_panels) #Shifting wake vortices positions
             vortex_history.append(vortex_lst[:])
             colloc_history.append(colloc_lst[:])
@@ -323,3 +324,28 @@ def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf_vec=[np.array([[1]
     if flap:
         results['flap_TE']=flap_TE_loc_T
     return results
+
+
+def Sensitivity_NPanels(N_panels):
+    alpha = np.arange(-10,22,2)
+    L,err = np.zeros((2,len(alpha),len(N_panels)))
+    rho = 1.225
+    #Calculate the Cl-alpha curve for each value of the number of panels
+    for i, val in enumerate(N_panels):
+        #Look at each angle of attack
+        for j in range(len(alpha)):
+            result = vortex_panel([0], int(np.round(val,0)), [alpha[j]], [0])
+            #Calculate lift
+            U_inf = np.linalg.norm(result['velocity'][0])
+            dL = rho*U_inf*(result['gamma'][0])
+            L[j,i] = sum(dL)
+            #Calculate error by comparing to the flat plate solution
+            if alpha[j] == 0:
+                err[j,i] = abs(L[j,i]/(0.5*rho*U_inf**2) - 2*np.pi*np.sin(alpha[j]*np.pi/180))
+            else: 
+                err[j,i] = abs(L[j,i]/(0.5*rho*U_inf**2) - 2*np.pi*np.sin(alpha[j]*np.pi/180))/(2*np.pi*np.sin(alpha[j]*np.pi/180))
+              
+    plt.figure
+    plt.loglog(np.round(N_panels),sum(err))
+    plt.xlabel('Number of panels')
+    plt.ylabel('Error')

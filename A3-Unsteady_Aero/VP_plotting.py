@@ -9,6 +9,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 from VP_utilities import VOR2D
 
+x = 6  # Want figures to be A6
+plt.rc('figure', figsize=[46.82 * .5**(.5 * x), 33.11 * .5**(.5 * x)]   )
+plt.rc('font', family='serif')
+
+save=True # Save or not
+
 def steady_polars(alpha, results, rho=1.225, moment=True, flap=False):
     if moment:
         N=2
@@ -54,10 +60,18 @@ def steady_polars(alpha, results, rho=1.225, moment=True, flap=False):
         plt.xlabel(r'$\alpha$ [$^{\circ}$]')
         plt.ylabel(label)
         plt.legend()
+        if save==True:
+            plt.savefig('figures/steady'+str(j)+'.pdf')
 
 
-def contours(result, rho=1.225, streamlines=True, flap=False, frames=[0]):
+def contours(result, rho=1.225, streamlines=True, flap=False, frames=[0], condition=None):
     c = result['chord']
+
+    if len(frames)>1:
+        mode='unsteady'+str(condition)
+    else:
+        mode='steady'+str(condition)
+
 
     for t in range(len(frames)):
         idx = frames[t]
@@ -81,7 +95,7 @@ def contours(result, rho=1.225, streamlines=True, flap=False, frames=[0]):
         # z_finer = np.linspace(TE[1,0],LE[1,0],5)
         # z = np.hstack((z_pre, z_finer, z_aft))
 
-        z = np.linspace(-1*c+LE[0,0],2*c,32)
+        z = np.linspace(-1.5*c+LE[0,0],2*c,32)
         x = np.linspace(-1.5*c,1.5*c,32)
         V_mag = np.zeros((len(z), len(x)))
         p = np.zeros((len(z), len(x)))
@@ -109,6 +123,8 @@ def contours(result, rho=1.225, streamlines=True, flap=False, frames=[0]):
             plt.plot([TE[0,0], TE_flap[0,0]], [TE[1,0], TE_flap[1,0]], 'k',  linewidth=3.2)
         plt.plot([LE[0,0], TE[0,0]], [LE[1,0], TE[1,0]], 'k',  linewidth=3.2)
         #plt.scatter(zz,xx, marker='+', color='white', alpha=0.5)
+        if save==True:
+            plt.savefig('figures/Ucontour_'+str(mode)+'.pdf')
 
         plt.figure()
         cp = plt.contourf(xx, zz, V/u_inf, 200, cmap='jet')
@@ -120,6 +136,8 @@ def contours(result, rho=1.225, streamlines=True, flap=False, frames=[0]):
         if flap:
             plt.plot([TE[0,0], TE_flap[0,0]], [TE[1,0], TE_flap[1,0]], 'k',  linewidth=3.2)
 
+        if save==True:
+            plt.savefig('figures/Vcontour_'+str(mode)+'.pdf')
 
         if streamlines:
             plt.figure()
@@ -128,6 +146,8 @@ def contours(result, rho=1.225, streamlines=True, flap=False, frames=[0]):
             plt.plot([LE[0,0], TE[0,0]], [LE[1,0], TE[1,0]], 'k',  linewidth=3)
             if flap:
                 plt.plot([TE[0,0], TE_flap[0,0]], [TE[1,0], TE_flap[1,0]], 'k',  linewidth=3.2)
+                if save==True:
+                    plt.savefig('figures/streamlines_'+str(mode)+'.pdf')
 
         plt.figure()
         cp = plt.contourf(xx, zz, p/(0.5*rho*u_inf**2), 200, cmap='jet')
@@ -138,6 +158,8 @@ def contours(result, rho=1.225, streamlines=True, flap=False, frames=[0]):
         plt.plot([LE[0,0], TE[0,0]], [LE[1,0], TE[1,0]], 'k',  linewidth=3.2)
         if flap:
             plt.plot([TE[0,0], TE_flap[0,0]], [TE[1,0], TE_flap[1,0]], 'k',  linewidth=3.2)
+        if save==True:
+            plt.savefig('figures/pcontour_'+str(mode)+'.pdf')
 
 
 
@@ -257,6 +279,8 @@ def unsteady_polars(theta, result, rho=1.225, quasi=False, inputs=False, arrows=
     plt.xlabel(r'$\alpha$ [deg]')
     plt.ylabel('$C_l$ [-]')
     plt.legend()
+    if save==True:
+        plt.savefig('figures/unsteady_Cl.pdf')
 
     if inputs:
         plt.figure()
@@ -275,13 +299,17 @@ def unsteady_polars(theta, result, rho=1.225, quasi=False, inputs=False, arrows=
         plt.legend()
         plt.xlabel('s [-]')
         plt.ylabel('$C_l$')
+        if save==True:
+            plt.savefig('figures/unsteady_Cl2.pdf')
 
-def flap_analysis(flap_results, flaps, alpha, parameter, rho=1.225, theory=False):
+def flap_analysis(flap_results, flaps, alpha, parameter, rho=1.225, theory=False, spanwise=False):
     Cl = np.zeros((len(flap_results),len(alpha)))
     Cl_theory = np.zeros((len(flap_results),len(alpha)))
+    dCl_lst = []
     plt.figure()
     for j in range(len(flap_results)):
         results = flap_results[j]
+        dCl = np.zeros((len(flap_results),len(alpha)))
         for i in range(len(alpha)):
             result = results[i]
             c = result['chord']+flaps[j]['length']
@@ -289,6 +317,7 @@ def flap_analysis(flap_results, flaps, alpha, parameter, rho=1.225, theory=False
             dL = rho*U_inf*(result['gamma'][0])
             L = sum(dL)
             Cl[j,i] = L/(0.5*rho*U_inf**2*c)
+            #dCl_lstdL/(0.5*rho*U_inf**2*c)
             hinge = result['chord']/(result['chord']+flaps[j]['length'])
             theta_k=np.arccos(1-2*hinge)
             Cl_theory[j,i] = 2*np.pi*np.sin(np.deg2rad(alpha[i]+flaps[j]['angle']*((1-theta_k/np.pi)+1/np.pi*np.sin(theta_k))))
@@ -309,6 +338,8 @@ def flap_analysis(flap_results, flaps, alpha, parameter, rho=1.225, theory=False
     plt.xlabel(r'$\alpha$ [$^\circ$]')
     plt.ylabel('$C_l$ [-]')
     plt.grid()
+    if save==True:
+        plt.savefig('figures/flap_'+str(parameter)+'.pdf')
 
 
 def step_response(theta, result, step, rho=1.225, idx=0):
@@ -323,7 +354,7 @@ def step_response(theta, result, step, rho=1.225, idx=0):
     s = s[idx:] - s[idx]
     if step=='gust':
         Cl_function = (1-0.5*(np.exp(-0.13*s)+np.exp(-s)))*Cl_theory[idx:]
-        lab = 'Kussner function'
+        lab = 'Küssner function'
     else:
         Cl_function = (1-0.165*np.exp(-0.045*s)-0.335*np.exp(-0.3*s))*Cl_theory[idx:]
         lab = 'Wagner function'
@@ -335,3 +366,7 @@ def step_response(theta, result, step, rho=1.225, idx=0):
     plt.legend()
     plt.xlabel('s [-]')
     plt.ylabel('$C_l/C_{l_{qs}}$')
+    if save==True:
+        plt.savefig('figures/step_'+str(lab)+'.pdf')
+
+
