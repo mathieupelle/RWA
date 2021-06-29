@@ -323,7 +323,7 @@ def step_response(theta, result, step, rho=1.225, idx=0):
     s = s[idx:] - s[idx]
     if step=='gust':
         Cl_function = (1-0.5*(np.exp(-0.13*s)+np.exp(-s)))*Cl_theory[idx:]
-        lab = 'Kussner function'
+        lab = 'Küssner function'
     else:
         Cl_function = (1-0.165*np.exp(-0.045*s)-0.335*np.exp(-0.3*s))*Cl_theory[idx:]
         lab = 'Wagner function'
