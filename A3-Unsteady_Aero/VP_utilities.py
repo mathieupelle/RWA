@@ -34,7 +34,7 @@ def VOR2D(point, vortex, gamma):
 
 def transform_coords(point, angle, LE):
     """
-      Transforms coordinates with speed and rotation of airfoil. Local --> Global
+      Transforms coordinates with speed and rotation of aerofoil. Local --> Global
 
       Parameters
       ----------
@@ -165,7 +165,7 @@ def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf_vec=[np.array([[1]
     TE_loc = np.array([[c], [0]]) #Trailing edge
     LE_loc = np.array([[0],[0]]) #Leading edge
     theta = np.deg2rad(theta) #angle of attack
-    normal_vec = np.array([[0, 1]]) #Normal vector for uncambered airfoil (local frame)
+    normal_vec = np.array([[0, 1]]) #Normal vector for uncambered aerofoil (local frame)
 
     #Creating panels
     L = c/N_panels #Panel length
@@ -233,7 +233,7 @@ def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf_vec=[np.array([[1]
             flap_TE_loc = np.array([[flap['length']],[0]])
             flap_TE_loc_T = transform_coords(flap_TE_loc, theta[0]+flap_angle, TE_loc_T)
 
-        #Updated positions of collocations pts and vortices on airfoil only
+        #Updated positions of collocations pts and vortices on aerofoil only
         for i in range(N_panels):
             colloc_lst[i] = transform_coords(colloc_panels[i], theta[0], LE_loc)
             vortex_lst[i] = transform_coords(vortex_panels[i], theta[0], LE_loc)
@@ -268,7 +268,7 @@ def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf_vec=[np.array([[1]
 
             V_origin = -U_inf_vec[t]
 
-            LE_loc = LE_loc - U_inf_vec[t]*dt #Updating leading edge (origin) position. Airfoil moves left.
+            LE_loc = LE_loc - U_inf_vec[t]*dt #Updating leading edge (origin) position. Aerofoil moves left.
             TE_loc_T = transform_coords(TE_loc, theta[t], LE_loc) #Transforming trailing edge location and shifting based on LE.
             TE_loc_lst.append(TE_loc_T) #Storing trailing edge position
             LE_loc_lst.append(LE_loc) #Storing leading edge position
@@ -280,7 +280,7 @@ def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf_vec=[np.array([[1]
                 shed_loc = TE_loc_T-(TE_loc_T-TE_loc_lst[t-1])*0.25 #shedding/new vortex location
             vortex_lst.append(shed_loc) #Storing shedding/new vortex position
 
-            #Updated positions of collocations pts and vortices on airfoil only
+            #Updated positions of collocations pts and vortices on aerofoil only
             for i in range(N_panels):
                 colloc_lst[i] = transform_coords(colloc_panels[i], theta[t], LE_loc)
                 vortex_lst[i] = transform_coords(vortex_panels[i], theta[t], LE_loc)
