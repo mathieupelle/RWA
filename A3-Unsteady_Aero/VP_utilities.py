@@ -106,7 +106,7 @@ def RHS_vector(colloc_lst, vortex_lst, gamma, N_panels, velocity_vec, normal_vec
       vortex_lst: [list] All vortices
       gamma: [list] Circulation of all vortices
       N_panels: [float/int] Number of panels
-      velocity_vec: [2x1 array] Velocity vector in local reference frame ???
+      velocity_vec: [2x1 array] Velocity vector in local reference frame
       normal_vec: [1x2 array] Normal vector in local reference frame
 
       Returns

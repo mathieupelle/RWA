@@ -23,38 +23,40 @@ for i in range(len(alpha)):
 steady_polars(alpha, results)
 
 #%% Steady case - Contours
-alpha=30
+alpha=5
 result = vortex_panel([0], 30, [alpha], [0], U_inf_vec=[np.array([[1],[0]])], c=1)
-scatter([result])
+#scatter([result])
 contours(result, streamlines=True, condition=alpha)
 
 #%% Unsteady case - oscillations
 
-#TODO Check orientation of arrows and make plots clearer
-
 k=[0.01, 0.05, 0.1]
 U_inf = 1
-c = 0.1
+c = 1
+results = []
+t_frame=5
 
 for i in range(len(k)):
 
     omega=k[i]*2*U_inf/c
     T = 2*np.pi/omega
-    N = 81
+    N = 191
     dt = 2*T/N
     t = np.linspace(0,2*T, N)
+    idx_frames = ((np.abs(t - t_frame)).argmin())
     U_inf_vec = [U_inf*np.array([[1],[0]])]*len(t)
-    theta = 10+5*np.sin(omega*t)
+    theta = 15+10*np.sin(omega*t)
     theta_dot = omega*np.cos(omega*t)
 
-    result = vortex_panel(t, 10, theta, theta_dot, c=c, U_inf_vec=U_inf_vec)
+    result = vortex_panel(t, 2, theta, theta_dot, c=c, U_inf_vec=U_inf_vec)
+    results.append(result)
 
     #scatter([result])
-    unsteady_polars(theta, result, quasi=True, inputs=True, arrows=True)
-    contours(result, rho=1.225, streamlines=True, frames=[5], condition=theta[5])
+    unsteady_polars(theta, result, rho=1.225, condition=str(k[i]))
+    contours(result, rho=1.225, streamlines=True, frames=[idx_frames], condition=str(k[i]))
+
 
 #%% Unsteady case - gust
-#TODO Check if gust and angle of attack input make sense
 
 U0 = np.array([[1],[0]])
 U1 = np.array([[1],[0.1]])
@@ -74,7 +76,8 @@ for i in range(len(U_inf_vec)):
     theta.append(np.rad2deg(np.arctan(U[1,0]/U[0,0])))
 
 step_response(theta, result, 'gust')
-contours(result, rho=1.225, streamlines=True, frames=[10])
+contours(result, rho=1.225, streamlines=True, frames=[6], condition='gust')
+
 
 #%% Unsteady case - step in angle of attack
 
@@ -86,11 +89,11 @@ U_inf_vec= [np.array([[1],[0]])]*len(t)
 result = vortex_panel(t, 5, theta, theta_dot, c=0.1, U_inf_vec=U_inf_vec)
 
 step_response(theta, result, step='angle', idx=0)
-contours(result, rho=1.225, streamlines=True, frames=[10])
+contours(result, rho=1.225, streamlines=True, frames=[10], condition='step')
 
 #%% Steady case - flap polars
 
-flap_angle = np.linspace(0,25,5)
+flap_angle = np.linspace(0,24,5)
 alpha = np.arange(-5,20,2)
 flap_results = {}
 flaps = []
@@ -124,12 +127,10 @@ flap_analysis(flap_results, flaps, alpha, 'flap_length',theory=True)
 
 #%% Steady case - flap contours
 alpha = 20
-flap = {'length':0.4, 'angle':30, 'N_panels':3}
-result = vortex_panel([0], 10, [alpha], [0], c=1, U_inf_vec=[np.array([[2],[0]])], flap=flap)
+flap = {'length':0.25, 'angle':18, 'N_panels':3}
+result = vortex_panel([0], 10, [alpha], [0], c=1, U_inf_vec=[np.array([[1],[0]])], flap=flap)
 
-contours(result, streamlines=True, flap=flap, condition=alpha)
-
-
+contours(result, streamlines=True, flap=flap, condition='flap'+str(alpha))
 
 #%% Sensitivity study
 
