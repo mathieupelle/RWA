@@ -7,6 +7,7 @@ Created on Mon Jun 21 23:54:43 2021
 
 import math as m
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def VOR2D(point, vortex, gamma):
@@ -323,3 +324,28 @@ def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf_vec=[np.array([[1]
     if flap:
         results['flap_TE']=flap_TE_loc_T
     return results
+
+
+def Sensitivity_NPanels(N_panels):
+    alpha = np.arange(-10,22,2)
+    L,err = np.zeros((2,len(alpha),len(N_panels)))
+    rho = 1.225
+    #Calculate the Cl-alpha curve for each value of the number of panels
+    for i, val in enumerate(N_panels):
+        #Look at each angle of attack
+        for j in range(len(alpha)):
+            result = vortex_panel([0], int(np.round(val,0)), [alpha[j]], [0])
+            #Calculate lift
+            U_inf = np.linalg.norm(result['velocity'][0])
+            dL = rho*U_inf*(result['gamma'][0])
+            L[j,i] = sum(dL)
+            #Calculate error by comparing to the flat plate solution
+            if alpha[j] == 0:
+                err[j,i] = abs(L[j,i]/(0.5*rho*U_inf**2) - 2*np.pi*np.sin(alpha[j]*np.pi/180))
+            else: 
+                err[j,i] = abs(L[j,i]/(0.5*rho*U_inf**2) - 2*np.pi*np.sin(alpha[j]*np.pi/180))/(2*np.pi*np.sin(alpha[j]*np.pi/180))
+              
+    plt.figure
+    plt.loglog(np.round(N_panels),sum(err))
+    plt.xlabel('Number of panels')
+    plt.ylabel('Error')

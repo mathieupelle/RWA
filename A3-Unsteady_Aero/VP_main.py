@@ -8,8 +8,8 @@ Created on Mon Jun  7 12:28:41 2021
 
 import numpy as np
 from VP_plotting import steady_polars, contours, scatter, unsteady_polars, flap_analysis, step_response
-from VP_utilities import vortex_panel
-
+from VP_utilities import vortex_panel,Sensitivity_NPanels
+import matplotlib.pyplot as plt
 
 
 #%% Steady case - Polars
@@ -130,3 +130,9 @@ result = vortex_panel([0], 10, [alpha], [0], c=1, U_inf_vec=[np.array([[2],[0]])
 contours(result, streamlines=True, flap=flap, condition=alpha)
 
 
+
+#%% Sensitivity study
+
+#Number of panels to be tested
+N_panels = np.logspace(0, 2, 15) 
+Sensitivity_NPanels(N_panels)
