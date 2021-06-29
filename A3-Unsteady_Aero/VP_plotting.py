@@ -14,6 +14,7 @@ plt.rc('figure', figsize=[46.82 * .5**(.5 * x), 33.11 * .5**(.5 * x)]   )
 plt.rc('font', family='serif')
 
 save=True # Save or not
+save=False # Save or not
 
 def steady_polars(alpha, results, rho=1.225, moment=True, flap=False):
     if moment:
@@ -67,10 +68,10 @@ def steady_polars(alpha, results, rho=1.225, moment=True, flap=False):
 def contours(result, rho=1.225, streamlines=True, flap=False, frames=[0], condition=None):
     c = result['chord']
 
-    if len(frames)>1:
-        mode='unsteady'+str(condition)
-    else:
+    if frames[0]==0:
         mode='steady'+str(condition)
+    else:
+        mode='unsteady'+str(condition)
 
 
     for t in range(len(frames)):
@@ -144,10 +145,12 @@ def contours(result, rho=1.225, streamlines=True, flap=False, frames=[0], condit
             #seed_points = np.linspace((-1.5*c,-1.5*c),(-1.5*c,1.5*c),20)
             plt.streamplot(z,x,U,V)#, start_points=seed_points)
             plt.plot([LE[0,0], TE[0,0]], [LE[1,0], TE[1,0]], 'k',  linewidth=3)
+            plt.ylabel('z/c [-]')
+            plt.xlabel('x/c [-]')
             if flap:
                 plt.plot([TE[0,0], TE_flap[0,0]], [TE[1,0], TE_flap[1,0]], 'k',  linewidth=3.2)
-                if save==True:
-                    plt.savefig('figures/streamlines_'+str(mode)+'.pdf')
+            if save==True:
+                plt.savefig('figures/streamlines_'+str(mode)+'.pdf')
 
         plt.figure()
         cp = plt.contourf(xx, zz, p/(0.5*rho*u_inf**2), 200, cmap='jet')
@@ -236,80 +239,105 @@ def get_CL(result, rho, theta):
         Cl_theory[t]=2*np.pi*np.sin(np.deg2rad(theta[t]))
     return Cl, Cl_theory, Cl_NC
 
-def unsteady_polars(theta, result, rho=1.225, quasi=False, inputs=False, arrows=True):
+def unsteady_polars(theta, result, rho=1.225, condition='0.1'):
 
-    Cl, Cl_theory, Cl_NC = get_CL(result, rho, theta)
+    Cl_us, Cl_s, Cl_NC = get_CL(result, rho, theta)
+    Cl_C = Cl_us-Cl_NC
 
     time = result['time']
     N_panels = result['N_panels']
-
     idx = int(len(time)/2)
     idx2 = int(3*len(time)/4)
+    labels = [r'$\alpha$ [deg]','s [-]']
+    name = ['alpha', 'time']
 
-    plt.figure()
-    plt.plot(theta[idx:], Cl[idx:], '--b', label='$C_{l_{us}}$')
-    plt.plot(theta[idx:], Cl_NC[idx:],'-k', label='$C_{l_{NC}}$')
-    plt.plot(theta[idx:], Cl[idx:]-Cl_NC[idx:],'--r', label='$C_{l_{C}}$')
-    plt.plot(theta[idx:], Cl_theory[idx:],'k', label='$C_{s}$', alpha=0.7)
+    s = []
+    for i in range(len(time)):
+        semichord = 2*time[i]*np.linalg.norm(result['velocity'][i])/result['chord']
+        s.append(semichord)
+
+    #s = s[idx:] - s[idx]
+    for p in range(2):
+        if p==0:
+            x = theta
+            dx1 = (x[idx]-x[idx-1])
+            dx2 = (x[idx2]-x[idx2-1])
+        else:
+            x = s
+            x = x - s[idx]
+
+        plt.figure()
+        plt.plot(x[idx:], Cl_us[idx:], '--b', label='$C_{l_{us}}$')
+        plt.plot(x[idx:], Cl_NC[idx:],'--k', label='$C_{l_{NC}}$')
+        plt.plot(x[idx:], Cl_C[idx:],'--r', label='$C_{l_{C}}$')
 
 
-    if arrows:
-        p1 = (theta[idx+2], Cl[idx+2]+0.2)
-        p2 = (theta[idx], Cl[idx]+0.2)
-        d1=dict(color='black', shrink=0.05, width=.5, headwidth=3, headlength=4, linewidth=.2)
-        plt.annotate('', xy=p1, xytext=p2, arrowprops=d1)
-        p1 = (theta[idx2+2], Cl[idx2+2]-0.2)
-        p2 = (theta[idx2], Cl[idx2]-0.2)
-        d1=dict(color='black', shrink=0.05, width=.5, headwidth=3, headlength=4, linewidth=.2)
-        plt.annotate('', xy=p1, xytext=p2, arrowprops=d1)
+        plt.grid()
+        #plt.tight_layout()
+        plt.legend()
+        plt.xlabel(labels[p])
+        plt.ylabel('$C_l$ [-]')
+        if p==1:
+            plt.xlim([0,max(x)])
+
+        if p==0:
+            C = [Cl_us, Cl_NC, Cl_C]
+            colours = ['blue', 'black', 'red']
+            for c in range(3):
+                scale_arrow=1.5
+                dy = C[c][idx]-C[c][idx-1]
+                plt.arrow(x[idx],  C[c][idx],
+                              scale_arrow*dx1/np.sqrt(dx1**2+dy**2) , scale_arrow*dy/np.sqrt(dx1**2+dy**2),
+                              color=colours[c], width=scale_arrow*.02,shape='right', head_length=0.3)
+                dy = C[c][idx2]-C[c][idx2-1]
+                plt.arrow(x[idx2], C[c][idx2],
+                              scale_arrow*dx2/np.sqrt(dx2**2+dy**2) , scale_arrow*dy/np.sqrt(dx2**2+dy**2),
+                              color=colours[c], width=scale_arrow*.02,shape='right', head_length=0.3)
 
 
+        if save==True:
+            plt.savefig('figures/loads_'+name[p]+'_'+condition+'.pdf')
 
-    if quasi:
-        C=np.zeros(len(theta))
+        plt.figure()
+        plt.plot(x[idx:], Cl_us[idx:], '--b', label='$C_{l_{us}}$')
+        Cl_qs=np.zeros(len(theta))
         for i in range(len(theta)):
             U_inf = np.linalg.norm(result['velocity'][i])
             dL = rho*U_inf*(result['gamma'][i][:N_panels])
             L = sum(dL)
-            C[i] = L/(0.5*rho*U_inf**2*result['chord'])
+            Cl_qs[i] = L/(0.5*rho*U_inf**2*result['chord'])
 
-        plt.plot(theta[idx:], C[idx:], '--g', label='$C_{l_{qs}}$')
-    plt.grid()
-    plt.tight_layout()
-    plt.xlabel(r'$\alpha$ [deg]')
-    plt.ylabel('$C_l$ [-]')
-    plt.legend()
-    if save==True:
-        plt.savefig('figures/unsteady_Cl.pdf')
-
-    if inputs:
-        plt.figure()
-        s = []
-        for i in range(len(time)):
-            semichord = 2*time[i]*np.linalg.norm(result['velocity'][i])/result['chord']
-            s.append(semichord)
-
-        s = s[idx:] - s[idx]
-
-        plt.plot(s, Cl[idx:], '--b', label='$C_l$')
-        plt.plot(s, Cl[idx:]-Cl_NC[idx:], '-.r', label='$C_{l_{C}}$')
-        plt.plot(s, Cl_NC[idx:], '-k', label='$C_{l_{NC}}$')
-        plt.xlim([0,max(s)])
+        plt.plot(x[idx:], Cl_qs[idx:], '--g', label='$C_{l_{qs}}$')
+        plt.plot(x[idx:], Cl_s[idx:],'k', label='$C_{s}$')
         plt.grid()
+        plt.xlabel(labels[p])
+        plt.ylabel('$C_l$ [-]')
         plt.legend()
-        plt.xlabel('s [-]')
-        plt.ylabel('$C_l$')
+        if p==1:
+            plt.xlim([0,max(x)])
+        if p==0:
+            C = [Cl_qs, Cl_us]
+            colours = ['green', 'blue']
+            for c in range(2):
+                scale_arrow=1.5
+                dy = C[c][idx]-C[c][idx-1]
+                plt.arrow(x[idx],  C[c][idx],
+                              scale_arrow*dx1/np.sqrt(dx1**2+dy**2) , scale_arrow*dy/np.sqrt(dx1**2+dy**2),
+                              color=colours[c], width=scale_arrow*.02,shape='right', head_length=0.3)
+                dy = C[c][idx2]-C[c][idx2-1]
+                plt.arrow(x[idx2], C[c][idx2],
+                              scale_arrow*dx2/np.sqrt(dx2**2+dy**2) , scale_arrow*dy/np.sqrt(dx2**2+dy**2),
+                              color=colours[c], width=scale_arrow*.02,shape='right', head_length=0.3)
+
         if save==True:
-            plt.savefig('figures/unsteady_Cl2.pdf')
+            plt.savefig('figures/unsteady_'+name[p]+'_'+condition+'.pdf')
 
 def flap_analysis(flap_results, flaps, alpha, parameter, rho=1.225, theory=False, spanwise=False):
     Cl = np.zeros((len(flap_results),len(alpha)))
     Cl_theory = np.zeros((len(flap_results),len(alpha)))
-    dCl_lst = []
     plt.figure()
     for j in range(len(flap_results)):
         results = flap_results[j]
-        dCl = np.zeros((len(flap_results),len(alpha)))
         for i in range(len(alpha)):
             result = results[i]
             c = result['chord']+flaps[j]['length']
@@ -320,7 +348,8 @@ def flap_analysis(flap_results, flaps, alpha, parameter, rho=1.225, theory=False
             #dCl_lstdL/(0.5*rho*U_inf**2*c)
             hinge = result['chord']/(result['chord']+flaps[j]['length'])
             theta_k=np.arccos(1-2*hinge)
-            Cl_theory[j,i] = 2*np.pi*np.sin(np.deg2rad(alpha[i]+flaps[j]['angle']*((1-theta_k/np.pi)+1/np.pi*np.sin(theta_k))))
+            alpha_flap = np.deg2rad(flaps[j]['angle'])*((1-theta_k/np.pi)+1/np.pi*np.sin(theta_k))
+            Cl_theory[j,i] = 2*np.pi*(np.sin(np.deg2rad(alpha[i])+alpha_flap))
 
         if j%1==0:
             if parameter == 'flap_length':
