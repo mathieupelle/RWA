@@ -62,7 +62,7 @@ def transform_vel(speed, angle, rotational_speed, x_pos):
 
 def influence_matrix(colloc_lst, vortex_lst, normal, N_panels, flap=False):
     """
-      Computes influcence matrix using panel vortices and latest wake vortex
+      Computes influence matrix using panel vortices and latest wake vortex
 
       Parameters
       ----------
