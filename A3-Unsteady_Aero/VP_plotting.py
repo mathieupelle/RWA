@@ -13,7 +13,6 @@ x = 6  # Want figures to be A6
 plt.rc('figure', figsize=[46.82 * .5**(.5 * x), 33.11 * .5**(.5 * x)]   )
 plt.rc('font', family='serif')
 
-save=True # Save or not
 save=False # Save or not
 
 def steady_polars(alpha, results, rho=1.225, moment=True, flap=False):
