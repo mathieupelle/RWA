@@ -14,7 +14,7 @@ from VP_utilities import vortex_panel
 
 #%% Steady case - Polars
 
-alpha = np.arange(-20,20,2)
+alpha = np.arange(-10,22,2)
 results = []
 for i in range(len(alpha)):
     result = vortex_panel([0], 10, [alpha[i]], [0])
@@ -23,10 +23,10 @@ for i in range(len(alpha)):
 steady_polars(alpha, results)
 
 #%% Steady case - Contours
-
-result = vortex_panel([0], 30, [15], [0], U_inf_vec=[np.array([[1],[0]])], c=1)
+alpha=30
+result = vortex_panel([0], 30, [alpha], [0], U_inf_vec=[np.array([[1],[0]])], c=1)
 scatter([result])
-contours(result, streamlines=True)
+contours(result, streamlines=True, condition=alpha)
 
 #%% Unsteady case - oscillations
 
@@ -51,7 +51,7 @@ for i in range(len(k)):
 
     #scatter([result])
     unsteady_polars(theta, result, quasi=True, inputs=True, arrows=True)
-    contours(result, rho=1.225, streamlines=True, frames=[5])
+    contours(result, rho=1.225, streamlines=True, frames=[5], condition=theta[5])
 
 #%% Unsteady case - gust
 #TODO Check if gust and angle of attack input make sense
@@ -120,11 +120,13 @@ for j in range(len(flap_length)):
 
 flap_analysis(flap_results, flaps, alpha, 'flap_length',theory=True)
 
+
+
 #%% Steady case - flap contours
+alpha = 20
+flap = {'length':0.4, 'angle':30, 'N_panels':3}
+result = vortex_panel([0], 10, [alpha], [0], c=1, U_inf_vec=[np.array([[2],[0]])], flap=flap)
 
-flap = {'length':0.4, 'angle':10, 'N_panels':3}
-result = vortex_panel([0], 10, [15], [0], c=1, U_inf_vec=[np.array([[2],[0]])], flap=flap)
-
-contours(result, streamlines=True, flap=flap)
+contours(result, streamlines=True, flap=flap, condition=alpha)
 
 
