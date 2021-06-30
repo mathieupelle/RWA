@@ -64,7 +64,7 @@ def steady_polars(alpha, results, rho=1.225, moment=True, flap=False):
             plt.savefig('figures/steady'+str(j)+'.pdf')
 
 
-def contours(result, rho=1.225, streamlines=True, flap=False, frames=[0], condition=None):
+def contours(result, rho=1.225, streamlines=True, flap=False, frames=[0], condition=None, bound=False):
     c = result['chord']
 
     if frames[0]==0:
@@ -95,8 +95,8 @@ def contours(result, rho=1.225, streamlines=True, flap=False, frames=[0], condit
         # z_finer = np.linspace(TE[1,0],LE[1,0],5)
         # z = np.hstack((z_pre, z_finer, z_aft))
 
-        z = np.linspace(-1.5*c+LE[0,0],2*c,32)
-        x = np.linspace(-1.5*c,1.5*c,32)
+        z = np.linspace(-1.5*c+LE[0,0],2*c,80)
+        x = np.linspace(-1.5*c,1.5*c,80)
         V_mag = np.zeros((len(z), len(x)))
         p = np.zeros((len(z), len(x)))
         U = np.zeros((len(z), len(x)))
@@ -114,8 +114,19 @@ def contours(result, rho=1.225, streamlines=True, flap=False, frames=[0], condit
 
         plt.figure()
         xx, zz = np.meshgrid(z,x)
-        cp = plt.contourf(xx, zz, U/u_inf, 200, cmap='jet')
+        if bound==False:
+            bound=[[0,0],[0,0],[0,0]]
+        var_lst = [U,V,p]
+        for b in range(len(bound)):
+            if bound[b]==[0,0]:
+                bound[b][0] = np.min(var_lst[b])
+                bound[b][1] = np.max(var_lst[b])
+
+        lev = np.sort(np.linspace(bound[0][0], bound[0][1], 200, endpoint=True))
+        cp = plt.contourf(xx, zz, U/u_inf, levels=lev, cmap='jet', extend='both')
         cbar = plt.colorbar(cp)
+
+        #cbar.set_ticks(np.linspace(cmin,cmax,30))
         cbar.ax.set_ylabel('$U/U_{\infty}$ [-]', rotation=270, labelpad=15)
         plt.ylabel('z/c [-]')
         plt.xlabel('x/c [-]')
@@ -127,7 +138,8 @@ def contours(result, rho=1.225, streamlines=True, flap=False, frames=[0], condit
             plt.savefig('figures/Ucontour_'+str(mode)+'.pdf')
 
         plt.figure()
-        cp = plt.contourf(xx, zz, V/u_inf, 200, cmap='jet')
+        lev = np.sort(np.linspace(bound[1][0], bound[1][1], 200, endpoint=True))
+        cp = plt.contourf(xx, zz, V/u_inf, levels=lev, cmap='jet', extend='both')
         cbar = plt.colorbar(cp)
         cbar.ax.set_ylabel('$V/U_{\infty}$ [-]', rotation=270, labelpad=15)
         plt.ylabel('z/c [-]')
@@ -152,7 +164,8 @@ def contours(result, rho=1.225, streamlines=True, flap=False, frames=[0], condit
                 plt.savefig('figures/streamlines_'+str(mode)+'.pdf')
 
         plt.figure()
-        cp = plt.contourf(xx, zz, p/(0.5*rho*u_inf**2), 200, cmap='jet')
+        lev = np.sort(np.linspace(bound[2][0], bound[2][1], 200, endpoint=True))
+        cp = plt.contourf(xx, zz, p/(0.5*rho*u_inf**2), levels=lev, cmap='jet', extend='both')
         cbar = plt.colorbar(cp)
         cbar.ax.set_ylabel('$\Delta q/q_{\infty}$', rotation=270, labelpad=15)
         plt.ylabel('z/c [-]')

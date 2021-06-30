@@ -342,9 +342,9 @@ def Sensitivity_NPanels(N_panels):
             #Calculate error by comparing to the flat plate solution
             if alpha[j] == 0:
                 err[j,i] = abs(L[j,i]/(0.5*rho*U_inf**2) - 2*np.pi*np.sin(alpha[j]*np.pi/180))
-            else: 
+            else:
                 err[j,i] = abs(L[j,i]/(0.5*rho*U_inf**2) - 2*np.pi*np.sin(alpha[j]*np.pi/180))/(2*np.pi*np.sin(alpha[j]*np.pi/180))
-              
+
     plt.figure
     plt.loglog(np.round(N_panels),sum(err))
     plt.xlabel('Number of panels')

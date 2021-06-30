@@ -23,10 +23,11 @@ for i in range(len(alpha)):
 steady_polars(alpha, results)
 
 #%% Steady case - Contours
-alpha=5
+alpha=20
 result = vortex_panel([0], 30, [alpha], [0], U_inf_vec=[np.array([[1],[0]])], c=1)
 #scatter([result])
-contours(result, streamlines=True, condition=alpha)
+bound = [[0.2,1.5],[-0.5,0.8],[1,-2]]
+contours(result, streamlines=True, condition=alpha, bound=bound)
 
 #%% Unsteady case - oscillations
 
@@ -135,5 +136,5 @@ contours(result, streamlines=True, flap=flap, condition='flap'+str(alpha))
 #%% Sensitivity study
 
 #Number of panels to be tested
-N_panels = np.logspace(0, 2, 15) 
+N_panels = np.logspace(0, 2, 15)
 Sensitivity_NPanels(N_panels)
