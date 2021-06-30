@@ -127,4 +127,16 @@ result = vortex_panel([0], 10, [15], [0], c=1, U_inf_vec=[np.array([[2],[0]])], 
 
 contours(result, streamlines=True, flap=flap)
 
+#%% Unsteady case - flap contours
 
+t=np.arange(0,2,0.1)
+theta=np.ones(len(t))*5
+theta_dot = np.zeros(len(t))
+U_inf_vec= [np.array([[1],[0]])]*len(t)
+
+flap = {'length':0.2, 'angle':45, 'N_panels':3}
+
+result = vortex_panel(t, 5, theta, theta_dot, c=1, U_inf_vec=U_inf_vec, flap=flap, shed_loc_ratio=0.3)
+
+scatter([result])
+contours(result, rho=1.225, streamlines=True, flap=flap, frames=[19])

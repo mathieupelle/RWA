@@ -68,7 +68,7 @@ def contours(result, rho=1.225, streamlines=True, flap=False, frames=[0]):
         # LE = np.array([[0],[0]])
 
         if flap:
-            TE_flap = result['flap_TE']
+            TE_flap = result['flap_TE'][idx]
         u_inf = np.linalg.norm(result['velocity'][idx])
 
         #Finer mesh - not really working
