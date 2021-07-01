@@ -23,6 +23,7 @@ def steady_polars(alpha, results, rho=1.225, moment=True, flap=False):
     for j in range(N):
         C=np.zeros(len(alpha))
         C_theory=np.zeros(len(alpha))
+        dCl_lst=[]
         for i in range(len(alpha)):
             result = results[i]
             c = result['chord']
@@ -30,6 +31,7 @@ def steady_polars(alpha, results, rho=1.225, moment=True, flap=False):
                 c = c+flap['length']
             U_inf = np.linalg.norm(result['velocity'][0])
             dL = rho*U_inf*(result['gamma'][0])
+            dCl_lst.append(dL/(0.5*rho*U_inf**2*c))
             L = sum(dL)
 
             if j==0:
@@ -62,6 +64,20 @@ def steady_polars(alpha, results, rho=1.225, moment=True, flap=False):
         plt.legend()
         if save==True:
             plt.savefig('figures/steady'+str(j)+'.pdf')
+
+        plt.figure()
+        for i in range(len(alpha)):
+            if alpha[i]%5==0:
+                plt.plot(np.linspace(0,1,result['N_panels'],endpoint=True),dCl_lst[i], label=r'$\alpha=$'+str(alpha[i])+'$^\circ$')
+
+        plt.grid()
+        plt.xlabel('x/c [-]')
+        plt.ylabel('$dC_l$')
+        plt.legend()
+        if save==True:
+            plt.savefig('figures/cl_dist.pdf')
+
+
 
 
 def contours(result, rho=1.225, streamlines=True, flap=False, frames=[0], condition=None, bound=False):
