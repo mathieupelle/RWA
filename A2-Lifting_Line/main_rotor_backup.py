@@ -233,7 +233,7 @@ def LiftingLine(rotor,geometry):
     gamma = np.zeros((N_pts))
     gamma_new = np.zeros((N_pts))
 
-    results = {'r':[], 'a':[], 'at':[], 'F_ax':[], 'F_az':[], 'Gamma':[]}
+    results = {'r':[], 'a':[], 'at':[], 'F_ax':[], 'F_az':[], 'Gamma':[], 'iterations': 0}
     #Iteration controls
     it = 0
     it_max =1000
@@ -285,6 +285,7 @@ def LiftingLine(rotor,geometry):
         results['F_ax'] = F_ax
         results['Gamma'] = gamma_new
 
+
         error=max(abs(gamma_new-gamma))
         UR = 0.2
 
@@ -292,12 +293,12 @@ def LiftingLine(rotor,geometry):
         # referror=max(abs(gamma_new))
         # referror=max(referror,0.001)
         # error=max(abs(gamma_new-gamma))
-        # diff = error
         # error = error/referror
         # UR = max((1-error)*0.3,0.1)
 
         gamma = UR*gamma_new + (1-UR)*gamma
         it+=1
+        results['iterations'] = it
 
     return results
 
@@ -311,6 +312,9 @@ geometry = VortexGeometry(rotor, 40, 'ns', 4)
 
 results = LiftingLine(rotor,geometry)
 
+
+#%%
+
 dt = pd.read_csv('results.txt')
 results_CSF=dt.to_numpy()
 
@@ -318,10 +322,15 @@ results_CSF=dt.to_numpy()
 plt.figure()
 plt.grid()
 plt.plot(results['r'][0:39]/rotor.R,results['F_ax'][0:39]/(0.5*rotor.V_inf[0]**2*rotor.R), label=r'Fnorm (LL)')
-plt.plot(results['r'][0:39]/rotor.R,results['F_az'][0:39]/(0.5*rotor.V_inf[0]**2*rotor.R), label=r'Ftan (LL)')
+plt.plot(results_CSF[:,2], results_CSF[:,3]/(0.5*rotor.V_inf[0]**2*rotor.R), label=r'Fnorm (BEM)')
+plt.legend()
+plt.xlabel('r/R')
 
-plt.plot(results_CSF[:,2], results_CSF[:,3]/(0.5*rotor.V_inf[0]**2*rotor.R), 'b', label=r'Fnorm (BEM)')
-plt.plot(results_CSF[:,2], results_CSF[:,4]/(0.5*rotor.V_inf[0]**2*rotor.R), 'g', label=r'Ftan (BEM)')
+
+plt.figure()
+plt.grid()
+plt.plot(results['r'][0:39]/rotor.R,results['F_az'][0:39]/(0.5*rotor.V_inf[0]**2*rotor.R), label=r'Ftan (LL)')
+plt.plot(results_CSF[:,2], results_CSF[:,4]/(0.5*rotor.V_inf[0]**2*rotor.R), label=r'Ftan (BEM)')
 plt.legend()
 plt.xlabel('r/R')
 
@@ -329,19 +338,24 @@ plt.xlabel('r/R')
 plt.figure()
 plt.grid()
 plt.plot(results['r'][0:39]/rotor.R,results['a'][0:39], label=r'a (LL)')
-plt.plot(results['r'][0:39]/rotor.R,results['at'][0:39], label=r'at (LL)')
+plt.plot(results_CSF[:,2], results_CSF[:,0], label=r'a (BEM)')
+plt.legend()
+plt.xlabel('r/R')
 
-plt.plot(results_CSF[:,2], results_CSF[:,0], 'b', label=r'a (BEM)')
-plt.plot(results_CSF[:,2], results_CSF[:,1], 'g', label=r'at (BEM)')
+plt.figure()
+plt.grid()
+plt.plot(results['r'][0:39]/rotor.R,results['at'][0:39], label=r'at (LL)')
+plt.plot(results_CSF[:,2], results_CSF[:,1], label=r'at (BEM)')
 plt.legend()
 plt.xlabel('r/R')
 
 
 plt.figure()
 plt.grid()
-plt.plot(results['r'][0:39]/rotor.R,results['Gamma'][0:39])
-
-
+plt.plot(results['r'][0:39]/rotor.R,results['Gamma'][0:39]/((m.pi*rotor.V_inf[0]**2/(rotor.N_blades*rotor.omega))), label=r'Gamma (LL)')
+plt.plot(results_CSF[:,2], results_CSF[:,5]/((m.pi*rotor.V_inf[0]**2/(rotor.N_blades*rotor.omega))), label=r'Gamma (BEM)')
+plt.legend()
+plt.xlabel('r/R')
 
 
 

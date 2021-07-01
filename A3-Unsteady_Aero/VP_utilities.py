@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from VP_plotting import get_CL
 
 
+
 def VOR2D(point, vortex, gamma):
     """
       Computes induced velocities from vortex in 2D
@@ -107,7 +108,7 @@ def RHS_vector(colloc_lst, vortex_lst, gamma, N_panels, velocity_vec, normal_vec
       vortex_lst: [list] All vortices
       gamma: [list] Circulation of all vortices
       N_panels: [float/int] Number of panels
-      velocity_vec: [2x1 array] Velocity vector in local reference frame ???
+      velocity_vec: [2x1 array] Velocity vector in local reference frame
       normal_vec: [1x2 array] Normal vector in local reference frame
 
       Returns
@@ -156,7 +157,8 @@ def vortex_wake_rollup(vortex_lst, gamma, dt, N_panels):
     return lst
 
 
-def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf_vec=[np.array([[1],[0]])], flap=False):
+
+def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf_vec=[np.array([[1],[0]])], flap=False, shed_loc_ratio=0.25):
     if len(theta)==1:
         mode = 'steady'
     elif len(theta)>1:
@@ -210,6 +212,7 @@ def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf_vec=[np.array([[1]
     gamma_lst = []
     LE_loc_lst = [] #Tracking leading edge location
     TE_loc_lst = [] #Tracking trailing edge location
+    flap_TE_loc_lst = [] #Tracking flap trailing edge location
 
     #Steady code
     if mode=='steady':
@@ -269,17 +272,36 @@ def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf_vec=[np.array([[1]
             normal_vec_global = normal_vec_global.T #Transposing
 
             V_origin = -U_inf_vec[t]
+            
+            if flap:
+                flap_normal_vec = transform_coords(normal_vec.T, flap_angle, np.zeros((2,1))) #Transforming normal vector
+                flap_normal_vec_global = transform_coords(normal_vec.T, theta[t]+flap_angle, np.zeros((2,1))) #Transforming normal vector
+                flap['norm_vec']=flap_normal_vec.T
+                flap['norm_vec_global']=flap_normal_vec_global.T
 
             LE_loc = LE_loc - U_inf_vec[t]*dt #Updating leading edge (origin) position. Aerofoil moves left.
             TE_loc_T = transform_coords(TE_loc, theta[t], LE_loc) #Transforming trailing edge location and shifting based on LE.
             TE_loc_lst.append(TE_loc_T) #Storing trailing edge position
             LE_loc_lst.append(LE_loc) #Storing leading edge position
+            
+            if flap:
+                flap_TE_loc = np.array([[flap['length']],[0]]) # defining local flap trailing edge location
+                flap_TE_loc_T = transform_coords(flap_TE_loc, theta[t]+flap_angle, TE_loc_T) # rotating flap trailing edge about hinge point and shifting based on hinge point location
+                flap_TE_loc_lst.append(flap_TE_loc_T) #Storing flap trailing edge location
 
             #shed_loc = TE_loc_T+np.array([[0.2],[0]])*c #shedding/new vortex location
             if t==0:
-                shed_loc = TE_loc_T+np.array([[0.25],[0]])*c #shedding/new vortex location
+                if flap:
+                    # shed_loc = flap_TE_loc_T+np.array([[0.25],[0]])*(c+flap['length'])
+                    shed_loc = flap_TE_loc_T*(1+shed_loc_ratio)
+                else:
+                    # shed_loc = TE_loc_T+np.array([[0.25],[0]])*c #shedding/new vortex location
+                    shed_loc = TE_loc_T*(1+shed_loc_ratio)
             else:
-                shed_loc = TE_loc_T-(TE_loc_T-TE_loc_lst[t-1])*0.25 #shedding/new vortex location
+                if flap:
+                    shed_loc = flap_TE_loc_T-(flap_TE_loc_T-flap_TE_loc_lst[t-1])*shed_loc_ratio
+                else:
+                    shed_loc = TE_loc_T-(TE_loc_T-TE_loc_lst[t-1])*shed_loc_ratio #shedding/new vortex location
             vortex_lst.append(shed_loc) #Storing shedding/new vortex position
 
             #Updated positions of collocations pts and vortices on aerofoil only
@@ -288,7 +310,7 @@ def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf_vec=[np.array([[1]
                 vortex_lst[i] = transform_coords(vortex_panels[i], theta[t], LE_loc)
 
             # influence matrix for each collocation pts and latest shed vortex
-            a = influence_matrix(colloc_lst, vortex_lst, normal_vec_global, N_panels)
+            a = influence_matrix(colloc_lst, vortex_lst, normal_vec_global, N_panels, flap=flap)
             a = np.vstack((a, np.ones((1, N_panels+1)))) #Last row of ones for Kelvin equation
 
             # RHS matrix with kinematic vel. and induced vel. of all but latest shed vortices
@@ -297,14 +319,12 @@ def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf_vec=[np.array([[1]
                 velocity_vec.append(transform_vel(V_origin, theta[t], theta_dot[t], colloc_panels[i][0][0]))
 
             if t==0:
-                gamma_temp = [np.array([[0],[0]])]*2 #Using gamma=0 for initial time step
-                f = RHS_vector(colloc_lst, vortex_lst, gamma_temp, N_panels, velocity_vec, normal_vec)
+                f = RHS_vector(colloc_lst, vortex_lst, [], N_panels, velocity_vec, normal_vec, flap=flap)
                 gamma_previous = 0
             else:
-                f = RHS_vector(colloc_lst, vortex_lst, gamma_lst[t-1], N_panels, velocity_vec, normal_vec)
+                f = RHS_vector(colloc_lst, vortex_lst, gamma_lst[t-1], N_panels, velocity_vec, normal_vec, flap=flap)
                 gamma_previous = -np.sum(gamma_lst[t-1][N_panels:]) #Total circulation at previous time step
             f = np.vstack((f, gamma_previous)) #RHS vector
-            print(t,len(time))
 
             gamma = np.linalg.inv(np.asmatrix(a))*f #solving system
 
@@ -324,7 +344,7 @@ def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf_vec=[np.array([[1]
                'time': time, 'panels_history': colloc_history}
 
     if flap:
-        results['flap_TE']=flap_TE_loc_T
+        results['flap_TE']=flap_TE_loc_lst
     return results
 
 
@@ -347,6 +367,7 @@ def Sensitivity_NPanels(N_panels):
             else: 
                 err[j,i] = abs(L[j,i]/(0.5*rho*U_inf**2) - 2*np.pi*np.sin(alpha[j]*np.pi/180))/(2*np.pi*np.sin(alpha[j]*np.pi/180))
               
+
     plt.figure
     plt.loglog(np.round(N_panels),sum(err))
     plt.xlabel('Number of panels')
@@ -379,3 +400,4 @@ def Sensitivity_DeltaT(dt):
     plt.ylabel('Error')
     plt.grid(which='both')
     plt.savefig('figures/Sensitivity_delta_t.pdf')
+
