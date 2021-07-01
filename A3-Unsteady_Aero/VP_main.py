@@ -7,7 +7,7 @@ Created on Mon Jun  7 12:28:41 2021
 
 
 import numpy as np
-from VP_plotting import steady_polars, contours, scatter, unsteady_polars, flap_analysis, step_response
+from VP_plotting import steady_polars, contours, scatter, unsteady_polars, flap_analysis, step_response,get_CL
 from VP_utilities import vortex_panel,Sensitivity_NPanels
 import matplotlib.pyplot as plt
 
@@ -58,7 +58,6 @@ for i in range(len(k)):
 
 
 #%% Unsteady case - gust
-
 U0 = np.array([[1],[0]])
 U1 = np.array([[1],[0.1]])
 
@@ -79,7 +78,6 @@ for i in range(len(U_inf_vec)):
 step_response(theta, result, 'gust')
 contours(result, rho=1.225, streamlines=True, frames=[6], condition='gust')
 
-
 #%% Unsteady case - step in angle of attack
 
 t=np.arange(0,2,0.02)
@@ -90,6 +88,7 @@ U_inf_vec= [np.array([[1],[0]])]*len(t)
 result = vortex_panel(t, 5, theta, theta_dot, c=0.1, U_inf_vec=U_inf_vec)
 
 step_response(theta, result, step='angle', idx=0)
+
 contours(result, rho=1.225, streamlines=True, frames=[10], condition='step')
 
 #%% Steady case - flap polars
@@ -128,6 +127,7 @@ flap_analysis(flap_results, flaps, alpha, 'flap_length',theory=True)
 
 #%% Steady case - flap contours
 alpha = 20
+
 flap = {'length':0.25, 'angle':18, 'N_panels':3}
 result = vortex_panel([0], 10, [alpha], [0], c=1, U_inf_vec=[np.array([[1],[0]])], flap=flap)
 
@@ -151,5 +151,10 @@ contours(result, rho=1.225, streamlines=True, flap=flap, frames=[19])
 #%% Sensitivity study
 
 #Number of panels to be tested
-N_panels = np.logspace(0, 2, 15)
+N_panels = np.logspace(0, 2, 15) 
 Sensitivity_NPanels(N_panels)
+
+#%% Effect of dt
+dt = np.log10(np.logspace((0.02),(0.5),6))
+Sensitivity_DeltaT(dt)
+

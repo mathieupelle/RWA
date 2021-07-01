@@ -8,6 +8,8 @@ Created on Mon Jun 21 23:54:43 2021
 import math as m
 import numpy as np
 import matplotlib.pyplot as plt
+from VP_plotting import get_CL
+
 
 
 def VOR2D(point, vortex, gamma):
@@ -153,6 +155,7 @@ def vortex_wake_rollup(vortex_lst, gamma, dt, N_panels):
         wake_vortex_lst[i] = wake_vortex_lst[i] + v*dt
     lst = vortex_lst[:N_panels]+wake_vortex_lst
     return lst
+
 
 
 def vortex_panel(time, N_panels, theta, theta_dot, c=1, U_inf_vec=[np.array([[1],[0]])], flap=False, shed_loc_ratio=0.25):
@@ -361,10 +364,40 @@ def Sensitivity_NPanels(N_panels):
             #Calculate error by comparing to the flat plate solution
             if alpha[j] == 0:
                 err[j,i] = abs(L[j,i]/(0.5*rho*U_inf**2) - 2*np.pi*np.sin(alpha[j]*np.pi/180))
-            else:
+            else: 
                 err[j,i] = abs(L[j,i]/(0.5*rho*U_inf**2) - 2*np.pi*np.sin(alpha[j]*np.pi/180))/(2*np.pi*np.sin(alpha[j]*np.pi/180))
+              
 
     plt.figure
     plt.loglog(np.round(N_panels),sum(err))
     plt.xlabel('Number of panels')
     plt.ylabel('Error')
+    plt.grid(which='both')
+    plt.savefig('figures/Sensitivity_Panels.pdf')
+    
+def Sensitivity_DeltaT(dt):
+    rho = 1.225;
+    Cl = np.zeros(len(dt))
+    for i,val in enumerate(dt):
+        t=np.arange(0,2,val)
+        theta=np.ones(len(t))*5
+        theta_dot = np.zeros(len(t))
+        U_inf_vec= [np.array([[1],[0]])]*len(t)
+        
+        result = vortex_panel(t, 2, theta, theta_dot, c=0.1, U_inf_vec=U_inf_vec)
+        Cl_vars = get_CL(result, rho, theta)
+        Cl[i] = Cl_vars[0][-1]
+    
+    
+    #Calculate errors
+    err = np.zeros(len(dt)-1)
+    for i in range(len(dt)-1):
+        err[i] = abs(Cl[i+1]-Cl[0])/Cl[0]
+        
+    plt.figure
+    plt.loglog(dt[1:],err)
+    plt.xlabel('Delta time')
+    plt.ylabel('Error')
+    plt.grid(which='both')
+    plt.savefig('figures/Sensitivity_delta_t.pdf')
+
