@@ -7,9 +7,8 @@ Created on Mon Jun  7 12:28:41 2021
 
 
 import numpy as np
-from VP_plotting import steady_polars, contours, scatter, unsteady_polars, flap_analysis, step_response,get_CL
-from VP_utilities import vortex_panel,Sensitivity_NPanels
-import matplotlib.pyplot as plt
+from VP_plotting import steady_polars, contours, scatter, unsteady_polars, flap_analysis, step_response
+from VP_utilities import vortex_panel,Sensitivity_NPanels, Sensitivity_DeltaT
 
 
 #%% Steady case - Polars
@@ -157,4 +156,3 @@ Sensitivity_NPanels(N_panels)
 #%% Effect of dt
 dt = np.log10(np.logspace((0.02),(0.5),6))
 Sensitivity_DeltaT(dt)
-
