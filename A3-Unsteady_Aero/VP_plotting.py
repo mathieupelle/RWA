@@ -98,7 +98,7 @@ def contours(result, rho=1.225, streamlines=True, flap=False, frames=[0], condit
         # LE = np.array([[0],[0]])
 
         if flap:
-            TE_flap = result['flap_TE'][idx]
+            TE_flap = result['flap_TE']
         u_inf = np.linalg.norm(result['velocity'][idx])
 
         #Finer mesh - not really working
@@ -111,8 +111,8 @@ def contours(result, rho=1.225, streamlines=True, flap=False, frames=[0], condit
         # z_finer = np.linspace(TE[1,0],LE[1,0],5)
         # z = np.hstack((z_pre, z_finer, z_aft))
 
-        z = np.linspace(-1.5*c+LE[0,0],2*c,80)
-        x = np.linspace(-1.5*c,1.5*c,80)
+        z = np.linspace(-1.5*c+LE[0,0],2*c,100)
+        x = np.linspace(-1.5*c,1.5*c,100)
         V_mag = np.zeros((len(z), len(x)))
         p = np.zeros((len(z), len(x)))
         U = np.zeros((len(z), len(x)))
@@ -418,12 +418,35 @@ def step_response(theta, result, step, rho=1.225, idx=0):
     plt.figure()
     plt.plot(s,(Cl[idx:]-Cl_NC[idx:])/max(Cl_theory), label='Vortex Panel Code')
     plt.plot(s,Cl_function/max(Cl_theory), '--k', label=lab)
+    plt.xlim([0,max(s)])
 
     plt.grid()
     plt.legend()
     plt.xlabel('s [-]')
-    plt.ylabel('$C_l/C_{l_{qs}}$')
+    plt.ylabel('$C_{l_{C}}/C_{l_{qs}}$')
     if save==True:
         plt.savefig('figures/step_'+str(lab)+'.pdf')
 
 
+def cl_dist_flap(results, flaps, parameter, rho=1.225):
+    plt.figure()
+    for i in range(len(flaps)):
+        result = results[i]
+        flap = flaps[i]
+        c = result['chord']+flap['length']
+        N_total = result['N_panels']
+        U_inf = np.linalg.norm(result['velocity'])
+        dL = rho*U_inf*(result['gamma'][0])
+        Cl_dist = dL/(0.5*rho*U_inf**2*c)
+        if parameter == 'flap_length':
+            lab = '$c_{f}/c$='+str(round(flaps[i]['length']/result['chord'],2))
+        else:
+            lab = r'$\beta$='+str(round(flaps[i]['angle']))+'$^\circ$'
+        plt.plot(np.linspace(0,c,N_total,endpoint=True),Cl_dist, label=lab)
+
+    plt.legend()
+    plt.xlabel('x/c [-]')
+    plt.ylabel('$dC_l$ [-]')
+    plt.grid()
+    if save==True:
+        plt.savefig('figures/flap_cl_dist_'+str(parameter)+'_'+'.pdf')
